@@ -151,37 +151,56 @@ function shortModelName(full) {
 }
 
 /**
- * Render available models, highlighting the active one.
+ * Render models with their session token counts.
  *
- * Format: `v4-pro v4-flash`
+ * Format: `v4-pro↑150K↓25K v4-flash↑5K`
  *
- * @param {string} activeModel - currently-active model ID
+ * Active model is highlighted.  Models with 0 tokens show just the name.
+ * Note: Claude Code only reports the primary model ID, so flash counts
+ * are typically 0 even when flash is used internally (subagents etc.).
+ * The real total cost across all models is on Line 2 (balance delta).
+ *
+ * @param {object} modelStats   - per-model token counters from session state
+ * @param {string} activeModel  - currently-active model ID
  * @returns {string}
  */
-function renderAvailableModels(activeModel) {
+function renderModelStats(modelStats, activeModel) {
   const models = ['deepseek-v4-pro', 'deepseek-v4-flash'];
+
   const parts = models.map(id => {
-    const short = shortModelName(id);
+    const v = (modelStats && modelStats[id]) || { input: 0, output: 0, cache: 0 };
+    const short    = shortModelName(id);
     const isActive = id === activeModel || shortModelName(activeModel) === short;
-    return isActive
-      ? `${fmt.C.white}${fmt.C.bold}${short}${fmt.C.reset}`
-      : `${fmt.C.dim}${short}${fmt.C.reset}`;
+    const total    = v.input + v.output + v.cache;
+
+    const color = isActive ? fmt.C.white : fmt.C.dim;
+
+    if (total > 0) {
+      const items = [];
+      if (v.input  > 0) items.push(`↑${fmt.formatTokens(v.input)}`);
+      if (v.output > 0) items.push(`↓${fmt.formatTokens(v.output)}`);
+      if (v.cache  > 0) items.push(`⟳${fmt.formatTokens(v.cache)}`);
+      return `${color}${short}${items.join('')}${fmt.C.reset}`;
+    }
+    // Zero tokens — show name only, very dim
+    return `\x1b[90m${short}\x1b[0m`;
   });
+
   return parts.join(' ');
 }
 
 /**
- * Render the DeepSeek balance + model status line.
+ * Render the DeepSeek balance + model usage line.
  *
- * Format: `💎 ¥5.06(充) | v4-pro v4-flash | ✅`
+ * Format: `💎 ¥5.06(充) | v4-pro↑150K↓25K v4-flash | ✅`
  *
  * @param {object|null} balance     - balance API response, or null
  * @param {boolean}     [stale]     - whether the data came from stale cache
- * @param {object}      _modelStats - unused (kept for signature compatibility)
+ * @param {object}      modelStats  - per-model token counters
  * @param {string}      activeModel - currently-active model ID
  * @returns {string}
  */
-function renderLine3(balance, stale, _modelStats, activeModel) {
+function renderLine3(balance, stale, modelStats, activeModel) {
   const out = [];
 
   // --- Balance section ---
@@ -204,10 +223,8 @@ function renderLine3(balance, stale, _modelStats, activeModel) {
     }
   }
 
-  // --- Available models (highlight active) ---
-  if (activeModel) {
-    out.push(renderAvailableModels(activeModel));
-  }
+  // --- Model usage (session token counts) ---
+  out.push(renderModelStats(modelStats, activeModel));
 
   // --- Availability badge ---
   if (balance && balance.balance_infos && balance.balance_infos.length > 0) {
