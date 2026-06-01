@@ -1,0 +1,31 @@
+{
+  "name": "deepseek-statusline",
+  "version": "1.0.0",
+  "description": "Claude Code status line plugin that displays DeepSeek API usage, account balance, and session metrics in a real-time HUD",
+  "keywords": [
+    "claude-code",
+    "statusline",
+    "deepseek",
+    "hud",
+    "usage",
+    "balance"
+  ],
+  "license": "MIT",
+  "author": "liangliang",
+  "main": "src/index.js",
+  "bin": {
+    "deepseek-statusline": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "directory": "D:/ll-work/ai-play/deepseek-statusline"
+  }
+}
