@@ -155,26 +155,35 @@ function shortModelName(full) {
  *
  * Format: `pro↑150K↓25K flash↑5K↓1K`
  *
- * The currently-active model is highlighted.
+ * The currently-active model is highlighted. Models with zero tokens are
+ * still shown (dimmed) so the user can see all tracked models at a glance.
  *
  * @param {object} modelStats   - { "model-id": { input, output, cache } }
  * @param {string} activeModel  - ID of the currently-active model
- * @returns {string} empty string if no models have tokens
+ * @returns {string} empty string if no models at all
  */
 function renderModelStats(modelStats, activeModel) {
-  const entries = Object.entries(modelStats)
-    .filter(([, v]) => (v.input + v.output + v.cache) > 0);
+  // Always include both known DeepSeek models
+  const knownModels = ['deepseek-v4-pro', 'deepseek-v4-flash'];
+  const allIds = [...new Set([...knownModels, ...Object.keys(modelStats || {})])];
 
-  if (entries.length === 0) return '';
+  if (allIds.length === 0) return '';
 
-  const parts = entries.map(([id, v]) => {
-    const short  = shortModelName(id);
+  const parts = allIds.map(id => {
+    const v = (modelStats && modelStats[id]) || { input: 0, output: 0, cache: 0 };
+    const short    = shortModelName(id);
     const isActive = id === activeModel;
-    const color  = isActive ? fmt.C.white : fmt.C.dim;
+    const total    = v.input + v.output + v.cache;
+
+    // Active model → white; inactive with tokens → dim; inactive with 0 tokens → extra dim
+    const color = isActive ? fmt.C.white : (total > 0 ? fmt.C.dim : '\x1b[90m');
+
     const parts2 = [];
     if (v.input  > 0) parts2.push(`↑${fmt.formatTokens(v.input)}`);
     if (v.output > 0) parts2.push(`↓${fmt.formatTokens(v.output)}`);
     if (v.cache  > 0) parts2.push(`⟳${fmt.formatTokens(v.cache)}`);
+    if (parts2.length === 0) parts2.push('0');
+
     return `${color}${short}${parts2.join('')}${fmt.C.reset}`;
   });
 
