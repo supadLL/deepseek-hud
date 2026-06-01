@@ -75,15 +75,43 @@ Tokens are attributed to the model that was active when they appeared:
 
 ## Setup
 
+### One-Command Install
+
+```bash
+# macOS / Linux / Git Bash (Windows)
+curl -fsSL https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.sh | bash
+```
+
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.ps1 | iex
+```
+
+The installer:
+1. Checks that Node.js and Git are available
+2. Clones the repo to `~/.claude/deepseek-hud/`
+3. Configures `~/.claude/settings.json` automatically
+4. Runs a smoke test to verify
+
+To **upgrade**, re-run the same command (it does `git pull`).
+
+To **uninstall**:
+
+```bash
+rm -rf ~/.claude/deepseek-hud
+# Then remove the "statusLine" key from ~/.claude/settings.json
+```
+
 ### Prerequisites
 
 - **Claude Code** ≥ 2.1
 - **Node.js** ≥ 14
+- **Git** (for clone/update)
 - DeepSeek API key configured as `ANTHROPIC_AUTH_TOKEN` in Claude Code settings
 
-### Configuration
+### Manual Configuration
 
-Add the `statusLine` field to `~/.claude/settings.json`:
+If you prefer to set it up manually, add the `statusLine` field to `~/.claude/settings.json`:
 
 ```json
 {

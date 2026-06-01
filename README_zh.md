@@ -75,13 +75,41 @@ deepseek-statusline/
 
 ## 安装配置
 
+### 一键安装
+
+```bash
+# macOS / Linux / Git Bash (Windows)
+curl -fsSL https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.sh | bash
+```
+
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.ps1 | iex
+```
+
+安装脚本会自动完成：
+1. 检查 Node.js 和 Git 是否可用
+2. 克隆仓库到 `~/.claude/deepseek-hud/`
+3. 自动配置 `~/.claude/settings.json`
+4. 运行冒烟测试验证
+
+**升级**：再次运行同一命令（自动执行 `git pull`）。
+
+**卸载**：
+
+```bash
+rm -rf ~/.claude/deepseek-hud
+# 然后从 ~/.claude/settings.json 中删除 "statusLine" 字段
+```
+
 ### 前置条件
 
 - **Claude Code** ≥ 2.1
 - **Node.js** ≥ 14
+- **Git**（用于克隆/更新）
 - DeepSeek API Key，已配置为 Claude Code 的 `ANTHROPIC_AUTH_TOKEN` 环境变量
 
-### 配置 Claude Code
+### 手动配置
 
 在 `~/.claude/settings.json` 中添加 `statusLine` 字段：
 
