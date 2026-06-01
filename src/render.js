@@ -139,7 +139,7 @@ function renderLine2(data, sessionCost, usdCost) {
 }
 
 // ---------------------------------------------------------------------------
-// Line 3 — DeepSeek Balance + per-model token stats
+// Line 3 — DeepSeek Balance + available models
 // ---------------------------------------------------------------------------
 
 /**
@@ -151,57 +151,37 @@ function shortModelName(full) {
 }
 
 /**
- * Render per-model token summary.
+ * Render available models, highlighting the active one.
  *
- * Format: `pro↑150K↓25K flash↑5K↓1K`
+ * Format: `v4-pro v4-flash`
  *
- * The currently-active model is highlighted. Models with zero tokens are
- * still shown (dimmed) so the user can see all tracked models at a glance.
- *
- * @param {object} modelStats   - { "model-id": { input, output, cache } }
- * @param {string} activeModel  - ID of the currently-active model
- * @returns {string} empty string if no models at all
+ * @param {string} activeModel - currently-active model ID
+ * @returns {string}
  */
-function renderModelStats(modelStats, activeModel) {
-  // Always include both known DeepSeek models
-  const knownModels = ['deepseek-v4-pro', 'deepseek-v4-flash'];
-  const allIds = [...new Set([...knownModels, ...Object.keys(modelStats || {})])];
-
-  if (allIds.length === 0) return '';
-
-  const parts = allIds.map(id => {
-    const v = (modelStats && modelStats[id]) || { input: 0, output: 0, cache: 0 };
-    const short    = shortModelName(id);
-    const isActive = id === activeModel;
-    const total    = v.input + v.output + v.cache;
-
-    // Active model → white; inactive with tokens → dim; inactive with 0 tokens → extra dim
-    const color = isActive ? fmt.C.white : (total > 0 ? fmt.C.dim : '\x1b[90m');
-
-    const parts2 = [];
-    if (v.input  > 0) parts2.push(`↑${fmt.formatTokens(v.input)}`);
-    if (v.output > 0) parts2.push(`↓${fmt.formatTokens(v.output)}`);
-    if (v.cache  > 0) parts2.push(`⟳${fmt.formatTokens(v.cache)}`);
-    if (parts2.length === 0) parts2.push('0');
-
-    return `${color}${short}${parts2.join('')}${fmt.C.reset}`;
+function renderAvailableModels(activeModel) {
+  const models = ['deepseek-v4-pro', 'deepseek-v4-flash'];
+  const parts = models.map(id => {
+    const short = shortModelName(id);
+    const isActive = id === activeModel || shortModelName(activeModel) === short;
+    return isActive
+      ? `${fmt.C.white}${fmt.C.bold}${short}${fmt.C.reset}`
+      : `${fmt.C.dim}${short}${fmt.C.reset}`;
   });
-
-  return `📊 ${parts.join(' ')}`;
+  return parts.join(' ');
 }
 
 /**
- * Render the DeepSeek balance + model stats line.
+ * Render the DeepSeek balance + model status line.
  *
- * Format: `💎 ¥5.06(充值) | 📊 pro↑150K↓25K flash↑5K↓1K | ✅`
+ * Format: `💎 ¥5.06(充) | v4-pro v4-flash | ✅`
  *
  * @param {object|null} balance     - balance API response, or null
  * @param {boolean}     [stale]     - whether the data came from stale cache
- * @param {object}      modelStats  - per-model token counters
+ * @param {object}      _modelStats - unused (kept for signature compatibility)
  * @param {string}      activeModel - currently-active model ID
  * @returns {string}
  */
-function renderLine3(balance, stale, modelStats, activeModel) {
+function renderLine3(balance, stale, _modelStats, activeModel) {
   const out = [];
 
   // --- Balance section ---
@@ -224,10 +204,9 @@ function renderLine3(balance, stale, modelStats, activeModel) {
     }
   }
 
-  // --- Per-model token stats ---
-  if (modelStats && Object.keys(modelStats).length > 0) {
-    const stats = renderModelStats(modelStats, activeModel);
-    if (stats) out.push(stats);
+  // --- Available models (highlight active) ---
+  if (activeModel) {
+    out.push(renderAvailableModels(activeModel));
   }
 
   // --- Availability badge ---
