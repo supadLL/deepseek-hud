@@ -8,15 +8,15 @@ Three lines rendered at the bottom of your terminal:
 
 ```
 [deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 5m 30s
-████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K | 💰 $0.0123 本次¥0.30 200K
-💎 ¥110.00(充) | 📊 v4-pro↑150K↓25K v4-flash↑5K↓1K | ✅
+████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K | 💰 本次¥0.30 $0.0123 200K
+💎 ¥110.00(充) | v4-pro↑150K↓25K v4-flash↑5K | ✅
 ```
 
 | Line | Content | Description |
 |---|---|---|
 | 1 | **Session Identity** | Model name, project directory, Git branch, effort level, duration |
-| 2 | **Resource Usage** | Context window bar (green/yellow/red), token breakdown (↑in ↓out ⟳cache), USD estimate + real RMB cost via balance delta |
-| 3 | **Balance & Models** | DeepSeek balance (topped-up / granted), per-model cumulative token stats, availability |
+| 2 | **Resource Usage** | Context window bar (green/yellow/red), token breakdown (↑in ↓out ⟳cache), RMB cost from balance delta + USD estimate |
+| 3 | **Balance & Models** | DeepSeek balance, per-model token counts (active highlighted, unused dimmed), availability |
 
 ## Features
 
