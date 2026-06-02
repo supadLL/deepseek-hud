@@ -125,21 +125,26 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
     || ctx.context_window_size
     || 200000;
 
-  // Scale Claude Code's percentage to the real context window.
-  // Claude Code computes used_percentage against its internal window
-  // size (often 200K for third-party models).  We rescale it to the
-  // actual model context size (1M for v4) while keeping CC's internal
-  // token counting (system prompt, tools, cache, etc.).
-  const claudePct    = ctx.used_percentage || 0;
+  const usage   = ctx.current_usage || {};
+  const ctxInput = usage.input_tokens || 0;
+  const ctxCache = usage.cache_read_input_tokens || 0;
+
+  // Compute two estimates and take the larger one:
+  //   A) Scale Claude Code's % from its window to real window.
+  //      Accurate for small contexts (includes system prompt / tools
+  //      overhead that we can't see from current_usage alone).
+  //      BUT caps at 20% because CC's % never exceeds 100.
+  //   B) Direct token count from current_usage / real window.
+  //      Less accurate for overhead, BUT keeps growing past CC's cap.
+  const claudePct     = ctx.used_percentage || 0;
   const claudeCtxSize = ctx.context_window_size || 200000;
-  let pct = claudeCtxSize > 0
-    ? Math.round(claudePct * claudeCtxSize / ctxSize)
-    : claudePct;
+  const scaledPct     = Math.round(claudePct * claudeCtxSize / ctxSize);
+  const directPct     = Math.round((ctxInput + ctxCache) / ctxSize * 100);
+  let pct = Math.max(scaledPct, directPct);
+
   // Floor at 1% when there IS context usage so we never show 0%
   // after /compact (small summary < 5K tokens = sub-1% on 1M).
   if (pct === 0 && claudePct > 0) pct = 1;
-  const usage   = ctx.current_usage || {};
-  const ctxInput = usage.input_tokens || 0;
 
   // Bar + percentage
   let line = `${fmt.progressBar(pct)} ${pct}% ctx`;
