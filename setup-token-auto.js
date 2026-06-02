@@ -2,166 +2,263 @@
 /**
  * DeepSeek HUD — Automatic Platform Token Extractor
  *
- * Uses Playwright to launch your system browser with your existing login
- * session, navigate to the DeepSeek platform, intercept the usage API
- * request, and extract the Bearer token — all without any manual steps.
+ * Auto-detects available Chromium-based browsers (Chrome, Edge, Brave,
+ * Chromium) on Windows / macOS / Linux, launches with the user's existing
+ * profile so the session is preserved, and extracts the Bearer token from
+ * the usage API request — no DevTools, no copy-paste.
  *
- * Requires: playwright (npm install playwright)
- *           A valid browser session on platform.deepseek.com
+ * Requires: npm install -g playwright
  */
 
 'use strict';
 
 const { chromium } = require('playwright');
+const { execSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 
 // ---------------------------------------------------------------------------
-// Config
+// Browser detection — ordered by preference
 // ---------------------------------------------------------------------------
 
-const TOKEN_FILE = path.join(os.homedir(), '.claude', 'deepseek-hud', '.platform_token');
-const PLATFORM_URL = 'https://platform.deepseek.com/usage';
-const USAGE_API_PATTERN = '/api/v0/usage/amount';
+/**
+ * Each entry maps a browser to its Playwright channel + profile paths.
+ * We try them in order and use the first one that exists.
+ *
+ * Profile paths are arrays because some browsers have multiple possible
+ * locations (e.g. Chrome Beta vs stable, Snap vs native on Linux).
+ */
+const BROWSERS = [
+  {
+    name:    'Microsoft Edge',
+    channel: 'msedge',
+    profiles: {
+      win32:  [path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'Edge', 'User Data')],
+      darwin: [path.join(os.homedir(), 'Library', 'Application Support', 'Microsoft Edge')],
+      linux:  [path.join(os.homedir(), '.config', 'microsoft-edge')],
+    },
+  },
+  {
+    name:    'Google Chrome',
+    channel: 'chrome',
+    profiles: {
+      win32:  [path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'User Data')],
+      darwin: [path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome')],
+      linux:  [
+        path.join(os.homedir(), '.config', 'google-chrome'),
+        path.join(os.homedir(), 'snap', 'google-chrome', 'current', '.config', 'google-chrome'),
+      ],
+    },
+  },
+  {
+    name:    'Brave Browser',
+    channel: 'chrome',  // Brave uses Chrome channel in Playwright but needs custom executable
+    profiles: {
+      win32:  [path.join(os.homedir(), 'AppData', 'Local', 'BraveSoftware', 'Brave-Browser', 'User Data')],
+      darwin: [path.join(os.homedir(), 'Library', 'Application Support', 'BraveSoftware', 'Brave-Browser')],
+      linux:  [path.join(os.homedir(), '.config', 'BraveSoftware', 'Brave-Browser')],
+    },
+    // Brave doesn't have a dedicated Playwright channel — we find the executable
+    executableHint: true,
+  },
+  {
+    name:    'Chromium',
+    channel: 'chromium',
+    profiles: {
+      win32:  [path.join(os.homedir(), 'AppData', 'Local', 'Chromium', 'User Data')],
+      darwin: [path.join(os.homedir(), 'Library', 'Application Support', 'Chromium')],
+      linux:  [
+        path.join(os.homedir(), '.config', 'chromium'),
+        path.join(os.homedir(), 'snap', 'chromium', 'current', '.config', 'chromium'),
+      ],
+    },
+  },
+];
 
-// Edge user data directory (where cookies/sessions are stored)
-const EDGE_PROFILE = process.env.EDGE_USER_DATA_PROFILE ||
-  path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'Edge', 'User Data');
+// ---------------------------------------------------------------------------
+// Detection
+// ---------------------------------------------------------------------------
+
+function detectBrowser() {
+  const platform = process.platform;
+  const profiles = platform === 'win32' ? 'win32' : (platform === 'darwin' ? 'darwin' : 'linux');
+
+  for (const browser of BROWSERS) {
+    const dirs = browser.profiles[profiles] || [];
+    for (const dir of dirs) {
+      if (fs.existsSync(dir)) {
+        // For Brave, also check if the executable exists
+        if (browser.executableHint) {
+          const exe = findBraveExecutable(platform);
+          if (exe) {
+            return { ...browser, profileDir: dir, executablePath: exe };
+          }
+          continue;
+        }
+        return { ...browser, profileDir: dir };
+      }
+    }
+  }
+  return null;
+}
+
+function findBraveExecutable(platform) {
+  const candidates = {
+    win32:  ['C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'],
+    darwin: ['/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'],
+    linux:  ['/usr/bin/brave-browser', '/usr/bin/brave'],
+  };
+  const list = candidates[platform] || [];
+  return list.find(fs.existsSync) || null;
+}
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
+  const TOKEN_FILE = path.join(os.homedir(), '.claude', 'deepseek-hud', '.platform_token');
+  const PLATFORM_URL = 'https://platform.deepseek.com/usage';
+  const USAGE_API_PATTERN = '/api/v0/usage/amount';
+
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
   console.log('║   DeepSeek HUD — Auto Token Extractor   ║');
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
 
-  let token = null;
+  // --- Detect browser ---
+  const browser = detectBrowser();
+  if (!browser) {
+    console.error('❌ 未找到支持的浏览器。');
+    console.error('   支持: Chrome, Edge, Brave, Chromium');
+    console.error('');
+    console.error('   请使用手动模式: setup-token.ps1 -Manual');
+    process.exit(1);
+  }
 
-  // Check if we should use Chrome instead of Edge
-  const channel = process.env.CHROME ? 'chrome' : 'msedge';
-  console.log(`Launching ${channel} with your existing profile...`);
-  console.log('(This uses your saved login — no manual steps needed)');
+  console.log(`检测到: ${browser.name}`);
+  console.log(`Profile: ${browser.profileDir}`);
   console.log('');
 
+  let token = null;
+
   try {
-    // Launch browser with persistent context (keeps existing cookies/login)
-    const context = await chromium.launchPersistentContext(EDGE_PROFILE, {
-      channel,
-      headless: false,  // show the browser window
+    // Launch persistent context — uses the real profile with saved login
+    const launchOptions = {
+      channel: browser.channel,
+      headless: false,
       args: [
         '--disable-blink-features=AutomationControlled',
         '--no-first-run',
       ],
-    });
+    };
+
+    if (browser.executablePath) {
+      launchOptions.executablePath = browser.executablePath;
+    }
+
+    console.log(`正在启动 ${browser.name}（使用已保存的登录状态）...`);
+    const context = await chromium.launchPersistentContext(browser.profileDir, launchOptions);
 
     const page = context.pages()[0] || await context.newPage();
 
-    // Intercept API requests BEFORE navigating
+    // Intercept API requests
     page.on('request', (request) => {
       const url = request.url();
       if (url.includes(USAGE_API_PATTERN)) {
-        const authHeader = request.headers()['authorization'] || '';
-        if (authHeader.startsWith('Bearer ')) {
-          token = authHeader.slice(7);  // strip 'Bearer ' prefix
+        const auth = request.headers()['authorization'] || '';
+        if (auth.startsWith('Bearer ')) {
+          token = auth.slice(7);
         }
       }
     });
 
-    // Navigate to the usage page
-    console.log('Opening DeepSeek platform...');
-    await page.goto(PLATFORM_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    // Navigate
+    console.log('正在打开 DeepSeek 后台...');
+    await page.goto(PLATFORM_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
-    // The API request may not fire immediately — wait for it
-    console.log('Waiting for usage API request...');
-
-    // Try clicking on a month selector or refreshing to trigger the API
+    // Wait for usage API request
+    console.log('等待用量 API 请求...');
     let attempts = 0;
-    while (!token && attempts < 10) {
+    while (!token && attempts < 12) {
       await page.waitForTimeout(2000);
+      attempts++;
 
-      // Try clicking "每月用量" or refreshing if needed
-      if (attempts === 0) {
-        // First attempt: just wait (the page might auto-load)
-      } else if (attempts === 2) {
-        // Try to click the usage/monthly tab
+      if (attempts === 2) {
+        // Click usage/monthly tab
         try {
-          const usageLink = page.locator('text=每月用量, text=用量, text=Usage, a[href*="usage"]').first();
-          if (await usageLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await usageLink.click();
+          const tab = page.locator('text=每月用量, text=用量, text=Usage, a[href*="usage"]').first();
+          if (await tab.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await tab.click();
           }
-        } catch (_) { /* ignore */ }
+        } catch (_) {}
       } else if (attempts === 4) {
-        // Refresh the page
         await page.reload({ waitUntil: 'domcontentloaded', timeout: 10000 });
       } else if (attempts === 6) {
-        // Try to interact with month picker
+        // Try clicking a month selector
         try {
-          const monthBtn = page.locator('[class*="month"], [class*="picker"], button:has-text("月")').first();
-          if (await monthBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await monthBtn.click();
-            await page.waitForTimeout(1000);
-            // Click back
-            await monthBtn.click();
+          const btn = page.locator('[class*="month"], [class*="picker"], button:has-text("月")').first();
+          if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await btn.click();
+            await page.waitForTimeout(1500);
+            await btn.click();
           }
-        } catch (_) { /* ignore */ }
+        } catch (_) {}
       } else if (attempts === 8) {
-        // Last resort: navigate to usage with query params directly
+        // Navigate with query params
         const d = new Date();
-        const m = d.getMonth() + 1;
-        const y = d.getFullYear();
-        await page.goto(`${PLATFORM_URL}?month=${m}&year=${y}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${PLATFORM_URL}?month=${d.getMonth() + 1}&year=${d.getFullYear()}`, { waitUntil: 'domcontentloaded' });
+      } else if (attempts === 10) {
+        // Last resort: force full reload
+        await page.goto(PLATFORM_URL, { waitUntil: 'load', timeout: 15000 });
       }
-
-      attempts++;
     }
 
-    // Close browser
     await context.close();
 
   } catch (err) {
     console.error('');
     console.error('❌ 自动化失败:', err.message.split('\n')[0]);
     console.error('');
-    if (err.message.includes('lockfile') || err.message.includes('SingletonLock') || err.message.includes('profile')) {
-      console.error('   Edge 正在运行中，Profile 目录被锁定。');
-      console.error('   请先关闭所有 Edge 窗口，然后重试。');
-      console.error('   或者使用手动模式: setup-token.ps1 -Manual');
+
+    const msg = err.message || '';
+    if (msg.includes('lock') || msg.includes('Singleton') || msg.includes('profile')) {
+      console.error(`   ${browser.name} 正在运行中，Profile 被锁定。`);
+      console.error('   请关闭所有浏览器窗口后重试。');
+      console.error('   或使用手动模式: setup-token.ps1 -Manual');
+    } else if (msg.includes('executable') || msg.includes('not found')) {
+      console.error(`   找不到 ${browser.name} 的可执行文件。`);
+      console.error('   请使用手动模式: setup-token.ps1 -Manual');
     } else {
-      console.error('   Edge/Chrome 启动失败。请确保浏览器已安装。');
+      console.error('   请确保目标浏览器已安装且未运行。');
     }
     process.exit(1);
   }
 
-  // -------------------------------------------------------------------------
-  // Result
-  // -------------------------------------------------------------------------
-
+  // --- Save ---
   if (token) {
-    // Save token
     const dir = path.dirname(TOKEN_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(TOKEN_FILE, token, 'utf8');
-    console.log('✅ Token saved to ' + TOKEN_FILE);
     console.log('');
-    console.log('   Line 3 will now show real daily usage.');
-    console.log('   Restart Claude Code to apply.');
+    console.log(`✅ Token 已保存 (${browser.name})`);
+    console.log(`   路径: ${TOKEN_FILE}`);
+    console.log('');
+    console.log('   Line 3 将展示真实每日用量，重启 Claude Code 生效。');
     console.log('');
   } else {
-    console.log('❌ Could not capture the token.');
     console.log('');
-    console.log('   Make sure you are logged into platform.deepseek.com in Edge.');
-    console.log('   If you are, try closing all Edge windows first and re-run.');
+    console.log('❌ 未能捕获 Token。');
+    console.log('   请确保已在浏览器中登录 platform.deepseek.com。');
+    console.log('   如果已登录，使用手动模式: setup-token.ps1 -Manual');
+    console.log('');
+    process.exit(1);
   }
 }
 
 main().catch((err) => {
-  console.error('Unexpected error:', err);
+  console.error('未知错误:', err);
   process.exit(1);
 });

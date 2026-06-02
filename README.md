@@ -129,7 +129,7 @@ powershell -File ~/.claude/deepseek-hud/setup-token.ps1
 powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 ```
 
-On Windows with Playwright installed (`npm install -g playwright`), the script uses **automatic browser extraction** — it closes Edge, launches with your profile, captures the token, and saves it. No DevTools, no copy-paste. Otherwise it guides you through manual DevTools extraction.
+On Windows with Playwright (`npm install -g playwright`), the script **automatically** detects your browser (Chrome, Edge, Brave, or Chromium), closes it temporarily, extracts the token using your saved login session, and saves it — no DevTools, no copy-paste. On other platforms or without Playwright, it guides you through manual DevTools extraction.
 
 **Manual setup**:
 
