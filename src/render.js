@@ -88,22 +88,21 @@ function renderLine1(data) {
 /**
  * Render the resources line.
  *
- * Format: `████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K(12%) | 💰 ¥0.30(估¥0.28) $0.01 200K`
+ * Format: `████░░░░░░ 42% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K | 💰 ¥0.30(估¥0.025) $0.01 200K`
  *
  * Token breakdown shows SESSION-LEVEL cumulative tokens (daily delta from
- * session start), NOT the current context window state.  Cache-hit rate
- * tells you how effective prompt caching is for this session.
+ * session start).  Cache tokens (⟳) are from current_usage — a point-in-time
+ * context snapshot, not a cumulative value.
  *
- * Cost shows three numbers:
- *   - Balance-delta RMB (real account spending since session start)
- *   - Token-based estimate in parens (session-specific, computed from tokens × pricing)
- *   - USD estimate from Claude Code (Anthropic pricing, reference only)
+ * The daily cache-hit RATE lives on Line 3 (per-model stats), because the
+ * rate is computed from daily-cumulative model counters, not from the
+ * context snapshot.
  *
  * @param {object} data          - Claude Code session JSON
  * @param {number} sessionCost   - actual RMB cost from balance delta (account-wide)
  * @param {number} usdCost       - USD estimate from Claude Code
  * @param {number} estimatedCost - RMB estimate from session tokens × DeepSeek pricing
- * @param {object} sessionTokens - {input, output, cache} session-level cumulative tokens
+ * @param {object} sessionTokens - {input, output} session-level cumulative tokens
  * @returns {string}
  */
 function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
@@ -122,18 +121,12 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   // cumulative field — it only reflects the current context window.
   const usage = ctx.current_usage || {};
   const cache = usage.cache_read_input_tokens || 0;
-  const ctxInput = usage.input_tokens || 0;
 
   if (input > 0 || output > 0 || cache > 0) {
     line += ` | ${fmt.C.dim}本会话${fmt.C.reset} ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
     line += ` ${fmt.C.dim}↓${fmt.formatTokens(output)}${fmt.C.reset}`;
-    // Cache-hit rate: what share of current-context input came from cache?
-    const denom = ctxInput + cache;
-    const rate  = denom > 0 ? Math.round(cache / denom * 100) : 0;
     if (cache > 0) {
-      line += ` ${fmt.C.green}⟳${fmt.formatTokens(cache)}${fmt.C.dim}(${rate}%)${fmt.C.reset}`;
-    } else if (ctxInput > 0) {
-      line += ` ${fmt.C.dim}⟳0(0%)${fmt.C.reset}`;
+      line += ` ${fmt.C.green}⟳${fmt.formatTokens(cache)}${fmt.C.reset}`;
     }
   } else {
     line += ` | ${fmt.C.dim}本会话 —${fmt.C.reset}`;
@@ -175,12 +168,14 @@ function shortModelName(full) {
 }
 
 /**
- * Render models with their session token counts.
+ * Render models with their daily-cumulative token counts.
  *
  * Format: `v4-pro↑150K↓25K v4-flash↑5K`
  *
  * Active model is highlighted.  Models with 0 tokens show just the name
- * in dim grey.
+ * in dim grey.  Cache tokens are intentionally omitted — the data source
+ * (current_usage.cache_read_input_tokens) is a context snapshot, not a
+ * daily-cumulative field, so the daily cache rate would be misleading.
  *
  * These are DAILY-CUMULATIVE totals (per the session state), not
  * session-level numbers.  The caller should prefix with "今日" for clarity.
@@ -206,7 +201,10 @@ function renderModelStats(modelStats, activeModel) {
       const items = [];
       if (v.input  > 0) items.push(`↑${fmt.formatTokens(v.input)}`);
       if (v.output > 0) items.push(`↓${fmt.formatTokens(v.output)}`);
-      if (v.cache  > 0) items.push(`⟳${fmt.formatTokens(v.cache)}`);
+      // Note: we intentionally do NOT show a daily cache-hit rate here.
+      // cache_read_input_tokens is a context-snapshot (not cumulative),
+      // so model.cache undercounts daily cache by orders of magnitude.
+      // The accurate daily cache rate is only available on DeepSeek's backend.
       return `${color}${short}${items.join('')}${fmt.C.reset}`;
     }
     // Zero tokens — show name only, very dim
