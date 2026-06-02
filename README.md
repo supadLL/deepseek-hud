@@ -131,7 +131,7 @@ This opens the DeepSeek platform in your browser and guides you through extracti
 
 1. 浏览器打开 https://platform.deepseek.com/usage 并登录
 2. 按 F12 → **Network**（网络）标签
-3. 点击页面上的 **每月用量** 或切换一下月份（触发 API 请求）
+3. 点击页面上的 **每月用量**，切换一下月份或直接刷新页面（触发 API 请求）
 4. 在 Network 列表中找到 `/api/v0/usage/amount?month=...` 请求并点击
 5. 右侧 **Request Headers**（请求标头）往下翻，找到 `Authorization: Bearer ...`
 6. 复制 `Bearer ` **后面**的那一串值（不含 "Bearer " 前缀）

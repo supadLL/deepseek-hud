@@ -43,8 +43,8 @@ Write-Host "Network" -ForegroundColor Cyan -NoNewline
 Write-Host "（网络）标签"
 Write-Host ""
 Write-Host "  3. " -NoNewline
-Write-Host "切换一下月份" -ForegroundColor Yellow -NoNewline
-Write-Host "（比如从 6 月切到 5 月再切回来），触发 API 请求"
+Write-Host "切换一下月份或直接刷新页面" -ForegroundColor Yellow -NoNewline
+Write-Host "，触发 API 请求"
 Write-Host ""
 Write-Host "  4. 在 Network 列表中找到 " -NoNewline
 Write-Host "/api/v0/usage/amount?month=..." -ForegroundColor Cyan -NoNewline
