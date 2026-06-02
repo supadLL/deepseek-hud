@@ -65,6 +65,7 @@ deepseek-statusline/
 ├── install.ps1             # One-command installer (Windows PowerShell)
 ├── setup-token.sh          # Platform token setup helper (macOS / Linux)
 ├── setup-token.ps1         # Platform token setup helper (Windows PowerShell)
+├── setup-token-auto.js     # Auto token extractor (Playwright — zero-click on Windows)
 ├── package.json
 ├── .gitignore
 ├── README.md
@@ -121,11 +122,14 @@ bash ~/.claude/deepseek-hud/setup-token.sh
 ```
 
 ```powershell
-# Windows PowerShell
+# Windows PowerShell (auto mode — zero clicks!)
 powershell -File ~/.claude/deepseek-hud/setup-token.ps1
+
+# Or manual mode if Playwright is not installed
+powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 ```
 
-This opens the DeepSeek platform in your browser and guides you through extracting the token.
+On Windows with Playwright installed (`npm install -g playwright`), the script uses **automatic browser extraction** — it closes Edge, launches with your profile, captures the token, and saves it. No DevTools, no copy-paste. Otherwise it guides you through manual DevTools extraction.
 
 **Manual setup**:
 

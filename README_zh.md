@@ -65,6 +65,7 @@ deepseek-statusline/
 ├── install.ps1             # 一键安装脚本（Windows PowerShell）
 ├── setup-token.sh          # 平台 Token 配置助手（macOS / Linux）
 ├── setup-token.ps1         # 平台 Token 配置助手（Windows PowerShell）
+├── setup-token-auto.js     # 自动 Token 提取（Playwright — Windows 一键完成）
 ├── package.json
 ├── .gitignore
 ├── README.md
@@ -122,11 +123,14 @@ bash ~/.claude/deepseek-hud/setup-token.sh
 ```
 
 ```powershell
-# Windows PowerShell
+# Windows PowerShell（自动模式 — 一键完成！）
 powershell -File ~/.claude/deepseek-hud/setup-token.ps1
+
+# 手动模式（如果没有安装 Playwright）
+powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 ```
 
-脚本会自动打开 DeepSeek 后台网页并引导你提取 Token。
+Windows 上如果安装了 Playwright（`npm install -g playwright`），脚本会**自动用浏览器提取** Token——关闭 Edge、用你的登录态启动、捕获 Token、保存，无需 F12、无需复制粘贴。否则会引导你通过 DevTools 手动提取。
 
 **手动配置**：
 
