@@ -129,11 +129,13 @@ This opens the DeepSeek platform in your browser and guides you through extracti
 
 **Manual setup**:
 
-1. Open https://platform.deepseek.com/usage in your browser
-2. Press F12 → **Network** tab
-3. Refresh the page, click any `/api/v0/usage/amount` request
-4. Under **Request Headers**, copy the value after `Bearer ` in the `Authorization` header
-5. Save it to `~/.claude/deepseek-hud/.platform_token`:
+1. 浏览器打开 https://platform.deepseek.com/usage 并登录
+2. 按 F12 → **Network**（网络）标签
+3. 点击页面上的 **每月用量** 或切换一下月份（触发 API 请求）
+4. 在 Network 列表中找到 `/api/v0/usage/amount?month=...` 请求并点击
+5. 右侧 **Request Headers**（请求标头）往下翻，找到 `Authorization: Bearer ...`
+6. 复制 `Bearer ` **后面**的那一串值（不含 "Bearer " 前缀）
+7. 保存到 `~/.claude/deepseek-hud/.platform_token`：
 
 ```bash
 echo -n "你的token值" > ~/.claude/deepseek-hud/.platform_token
@@ -259,12 +261,13 @@ Three lines of output = success.
 
 A: You haven't configured the platform token yet. Run `bash ~/.claude/deepseek-hud/setup-token.sh` (or the PowerShell version) to set it up. Once configured, Line 3 will show real daily usage like `↑44.3M(⟳43.2M命中97%)↓226.8K`.
 
-**Q: Line 3 stopped showing real daily usage — why?**
+**Q: Line 3 stopped showing real daily usage and shows `⚠️ 登录过期` — what do I do?**
 
-A: The platform token has likely expired (tokens last days to weeks). Run the setup script again:
+A: The platform token has expired. Run the setup script:
 ```bash
 bash ~/.claude/deepseek-hud/setup-token.sh
 ```
+It'll guide you through extracting a fresh token. Takes about 30 seconds.
 
 **Q: Why is the daily input number so large (40M+) while Line 2 shows much smaller numbers?**
 

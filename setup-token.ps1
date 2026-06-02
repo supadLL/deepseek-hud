@@ -33,31 +33,34 @@ Write-Host ""
 # Step 2 — Instructions
 Write-Host "Next steps:" -ForegroundColor White
 Write-Host ""
-Write-Host "  1. Press " -NoNewline
+Write-Host "  1. 登录 DeepSeek 后台，点击 " -NoNewline
+Write-Host "每月用量" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  2. 按 " -NoNewline
 Write-Host "F12" -ForegroundColor Cyan -NoNewline
 Write-Host " -> " -NoNewline
-Write-Host "Console" -ForegroundColor Cyan -NoNewline
-Write-Host " tab"
+Write-Host "Network" -ForegroundColor Cyan -NoNewline
+Write-Host "（网络）标签"
 Write-Host ""
-Write-Host "  2. Paste and run this ONE-LINER in the Console:" -ForegroundColor Yellow
+Write-Host "  3. " -NoNewline
+Write-Host "切换一下月份" -ForegroundColor Yellow -NoNewline
+Write-Host "（比如从 6 月切到 5 月再切回来），触发 API 请求"
 Write-Host ""
-Write-Host "     ┌─────────────────────────────────────────────────────────────┐"
-Write-Host "     │ " -NoNewline
-Write-Host "copy(localStorage.getItem('userToken') || '');'DONE'"  -ForegroundColor Green -NoNewline
-Write-Host " │"
-Write-Host "     └─────────────────────────────────────────────────────────────┘"
+Write-Host "  4. 在 Network 列表中找到 " -NoNewline
+Write-Host "/api/v0/usage/amount?month=..." -ForegroundColor Cyan -NoNewline
+Write-Host " 并点击"
 Write-Host ""
-Write-Host "     If that shows an empty string, try this instead:"
+Write-Host "  5. 右侧 " -NoNewline
+Write-Host "Request Headers" -ForegroundColor Cyan -NoNewline
+Write-Host "（请求标头）往下翻"
 Write-Host ""
-Write-Host "     ┌─────────────────────────────────────────────────────────────┐"
-Write-Host "     │ " -NoNewline
-Write-Host "copy(JSON.parse(localStorage.getItem('persist:root')||'{}').user?.token||'')" -ForegroundColor Green -NoNewline
-Write-Host " │"
-Write-Host "     └─────────────────────────────────────────────────────────────┘"
+Write-Host "  6. 找到 " -NoNewline
+Write-Host "authorization: Bearer ..." -ForegroundColor Green -NoNewline
+Write-Host " 这一行"
 Write-Host ""
-Write-Host "     Still not working? Manual method:" -ForegroundColor Yellow
-Write-Host "     F12 -> Network -> Refresh page -> Click /api/v0/usage/amount"
-Write-Host "     -> Request Headers -> Copy the Bearer token from Authorization"
+Write-Host "  7. 复制 " -NoNewline
+Write-Host "Bearer 后面的值" -ForegroundColor Yellow -NoNewline
+Write-Host "（不含 'Bearer ' 前缀），粘贴到下方"
 Write-Host ""
 
 # Step 3 — Read token

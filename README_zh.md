@@ -130,11 +130,13 @@ powershell -File ~/.claude/deepseek-hud/setup-token.ps1
 
 **手动配置**：
 
-1. 浏览器打开 https://platform.deepseek.com/usage
-2. 按 F12 → **Network** 标签
-3. 刷新页面，点 `/api/v0/usage/amount` 请求
-4. 在 **Request Headers** 中找到 `Authorization: Bearer ...`，复制 Bearer 后面的值
-5. 保存到 `~/.claude/deepseek-hud/.platform_token`：
+1. 浏览器打开 https://platform.deepseek.com/usage 并登录
+2. 按 F12 → **Network**（网络）标签
+3. 点击页面上的 **每月用量** 或**切换一下月份**（触发 API 请求）
+4. 在 Network 列表中找到 `/api/v0/usage/amount?month=...` 请求并点击
+5. 右侧 **Request Headers**（请求标头）往下翻，找到 `Authorization: Bearer ...`
+6. 复制 `Bearer ` **后面**的那一串值（不含 "Bearer " 前缀）
+7. 保存到 `~/.claude/deepseek-hud/.platform_token`：
 
 ```bash
 echo -n "你的token值" > ~/.claude/deepseek-hud/.platform_token
@@ -261,9 +263,9 @@ echo '{"model":{"id":"deepseek-v4-pro"},"workspace":{"current_dir":"/path/to/pro
 
 A: 你还没配置平台 Token。运行 `bash ~/.claude/deepseek-hud/setup-token.sh`（或 PowerShell 版本）完成配置。配置成功后 Line 3 会显示真实用量 `↑44.3M(⟳43.2M命中97%)↓226.8K`。
 
-**Q: Line 3 之前显示真实数据，现在突然变回估算数据了 — 怎么回事？**
+**Q: Line 3 显示 `⚠️ 登录过期 运行 setup-token 刷新` — 怎么办？**
 
-A: 平台 Token 过期了（有效期几天到几周）。重新运行 setup 脚本：
+A: 平台 Token 过期了。运行 setup 脚本重新获取，30 秒搞定：
 ```bash
 bash ~/.claude/deepseek-hud/setup-token.sh
 ```
