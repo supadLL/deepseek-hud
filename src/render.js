@@ -125,16 +125,18 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
     || ctx.context_window_size
     || 200000;
 
-  // Recalculate percentage based on actual context size.
-  // Claude Code computes used_percentage against its (wrong) internal
-  // window size — override with the real number.
-  const usage = ctx.current_usage || {};
-  const ctxInput  = usage.input_tokens  || 0;
-  const ctxOutput = usage.output_tokens || 0;
-  const ctxTotal  = ctxInput + ctxOutput;
-  const pct = ctxTotal > 0
-    ? Math.round(ctxTotal / ctxSize * 100)
-    : Math.round(ctx.used_percentage || 0);
+  // Scale Claude Code's percentage to the real context window.
+  // Claude Code computes used_percentage against its internal window
+  // size (often 200K for third-party models).  We rescale it to the
+  // actual model context size (1M for v4) while keeping CC's internal
+  // token counting (system prompt, tools, cache, etc.).
+  const claudePct    = ctx.used_percentage || 0;
+  const claudeCtxSize = ctx.context_window_size || 200000;
+  const pct = claudeCtxSize > 0
+    ? Math.round(claudePct * claudeCtxSize / ctxSize)
+    : claudePct;
+  const usage   = ctx.current_usage || {};
+  const ctxInput = usage.input_tokens || 0;
 
   // Bar + percentage
   let line = `${fmt.progressBar(pct)} ${pct}% ctx`;
