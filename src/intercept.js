@@ -162,6 +162,16 @@ function addUsage(date, u) {
  *      We parse each SSE data line and use the last one that carries usage.
  */
 function accumulate(date, body) {
+  // Debug: log what we received
+  const preview = (body || '').substring(0, 200).replace(/\n/g, '\\n');
+  try {
+    fs.appendFileSync(
+      path.join(os.tmpdir(), 'claude-ds-debug-accumulate.txt'),
+      `${new Date().toISOString()} len=${body.length} preview=${preview}\n`,
+      'utf8'
+    );
+  } catch (_) {}
+
   // --- Try plain JSON first (non-streaming responses) ---
   try {
     const data = JSON.parse(body);
