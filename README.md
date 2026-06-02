@@ -1,21 +1,21 @@
 # 🚀 DeepSeek HUD — Real-Time Usage Monitor for Claude Code
 
-> 💎 专为 DeepSeek  API 用户打造的 Claude Code 终端 HUD 插件 — 实时监控 Token 消耗、上下文窗口、会话花费与账户余额
+> 💎 A real-time HUD plugin for Claude Code + DeepSeek API — monitor token usage, context window, session cost, and account balance
 
 A beautiful real-time heads-up display (HUD) for Claude Code that puts your DeepSeek API usage right at your fingertips. Track **token consumption** 📊, **input/output/cache tokens** 🔄, **context window pressure** 🪟, **session spending in RMB** 💰, and **live account balance** 🏦 — all in a sleek 3-line terminal status bar.
 
 ### ✨ What You Can Monitor
 
-| 指标 | 说明 |
+| Metric | Description |
 |---|---|
-| 📊 **Token 消耗** | 实时展示当前上下文 token 用量（输入 ↑ / 输出 ↓ / 缓存命中 ⟳） |
-| 🪟 **上下文窗口** | 彩色进度条（🟢<70% 🟡70-89% 🔴≥90%），一目了然 |
-| 💰 **会话花费** | 基于 DeepSeek 余额差值的**真实人民币成本**，秒杀 Claude Code 的 USD 估算 |
-| 🏦 **账户余额** | 直连 DeepSeek API 查询实时余额（充值/赠送分明） |
-| 🔥 **Effort 等级** | 当前推理强度（💤low ⚡medium 🔥high 🚀xhigh 💥max） |
-| 🌿 **Git 分支** | 当前项目分支名 |
-| ⏱️ **会话时长** | 本次会话已持续时间 |
-| 🎯 **多模型追踪** | 分别追踪 `deepseek-v4-pro` 和 `deepseek-v4-flash` 的 token 用量 |
+| 📊 **Token Usage** | Real-time token counts (↑ input / ↓ output / ⟳ cache hits) |
+| 🪟 **Context Window** | Color-coded progress bar (🟢<70% 🟡70-89% 🔴>=90%) |
+| 💰 **Session Cost** | Real RMB cost via DeepSeek balance delta, plus token-based estimate |
+| 🏦 **Account Balance** | Live balance from DeepSeek API (top-up vs. grant shown separately) |
+| 🔥 **Effort Level** | Current reasoning intensity (💤low ⚡medium 🔥high 🚀xhigh 💥max) |
+| 🌿 **Git Branch** | Current project branch name |
+| ⏱️ **Session Duration** | Elapsed time for the current session |
+| 🎯 **Multi-Model Stats** | Separate tracking for `deepseek-v4-pro` and `deepseek-v4-flash` |
 
 ## Preview
 
@@ -27,18 +27,20 @@ Three lines rendered at the bottom of your terminal:
 💎 ¥110.00(充) | 今日 ↑44.3M(⟳43.2M命中97%)↓226.8K | ✅
 ```
 
+> **Legend:** `本会话` = this session | `今日` = today | `估` = estimate | `命中` = cache hit | `充` = topped up | `赠` = granted
+
 | Line | Content | Description |
 |---|---|---|
-| 1 | **Session Identity** | Model name, project directory, Git branch, effort level, duration |
-| 2 | **Session Resources** | Context window bar (green/yellow/red), `本会话` label + **session-level** tokens (↑in ↓out), cache hit rate (⟳X(X%)), cost (balance-delta RMB + token estimate + USD) |
-| 3 | **Balance & Daily Totals** | DeepSeek balance, `今日` label + **real** daily usage from platform API: total input (cached + non-cached), cache breakdown `(⟳X命中Y%)`, daily output, availability |
+| 1 | **Session Identity** | Model name, project directory, Git branch, effort level, compaction icon, duration |
+| 2 | **Session Resources** | Context window bar (green/yellow/red), session-level tokens (↑in ↓out), cache hit snapshot (⟳X(X%)), cost (balance-delta RMB + token estimate + USD), max context size |
+| 3 | **Balance & Daily Totals** | DeepSeek account balance, real daily usage from platform API: total input with cache breakdown (⟳cacheHits hitRate%), daily output, availability badge |
 
 ## Features
 
-- **Real RMB Cost** — tracks actual spending via DeepSeek balance delta (`initial − current`), plus session-level token-based cost estimate (`估¥X.XXXX`)
-- **Real Daily Usage** — fetches actual token consumption from `platform.deepseek.com/api/v0/usage/amount` (the same data shown in the DeepSeek dashboard), including cache-hit/miss breakdown
-- **Cache Hit Rate** — shows `⟳4.5K(24%)` for context-level cache rate; shows `⟳43.2M命中97%` for daily cache breakdown on Line 3
-- **Session vs Daily** — Line 2 shows **session-level** tokens (this conversation), Line 3 shows **daily-cumulative** totals with `今日` label from the real platform API
+- **Real RMB Cost** — tracks actual spending via DeepSeek balance delta (`initial − current`), plus session-level token-based cost estimate
+- **Real Daily Usage** — fetches actual token consumption from `platform.deepseek.com/api/v0/usage/amount` (the same data shown in the DeepSeek web dashboard), including cache-hit/miss breakdown
+- **Cache Hit Rate** — shows context-level snapshot on Line 2 (`⟳X(X%)`); shows daily cache breakdown on Line 3 (`⟳X命中Y%`)
+- **Session vs Daily** — Line 2 shows **session-level** tokens (this conversation), Line 3 shows **daily-cumulative** totals from the real platform API
 - **Multi-Model Tracking** — displays cumulative token counts for each model (`deepseek-v4-pro` / `deepseek-v4-flash`), highlighting the active one
 - **Dual Currency** — shows both Claude Code's USD estimate and the real CNY balance-delta cost
 - **30s Balance Cache** — avoids rate-limiting the DeepSeek API
@@ -97,7 +99,7 @@ Claude Code sends **daily-cumulative** `total_input_tokens` / `total_output_toke
 
 - **Session start** snapshots the daily totals as `dailyBaseline`
 - **Line 2 session tokens** = daily cumulative − session baseline (this conversation)
-- **Line 3 daily totals** = daily cumulative with `今日` label + `总` sum (all sessions today)
+- **Line 3 daily totals** = real usage from the DeepSeek platform API (all sessions today, including cache hits)
 - **Cache hit rate** = `cache_read_input_tokens / (input_tokens + cache_read_input_tokens)` (current context snapshot)
 
 ### Data Sources
@@ -153,7 +155,7 @@ powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Force
 | `Playwright not found` | Playwright not installed | `npm install -g playwright` |
 | `No supported browser found` | Chrome/Edge/Brave/Chromium not installed | Install one, or use manual mode |
 | Token captured but Line 3 shows estimates | Not logged into DeepSeek in that browser | Log into `platform.deepseek.com` in your browser first, then re-run |
-| Token works for a while then shows `⚠️ 登录过期` | Token expired (normal, weeks later) | Re-run the setup script |
+| Token works for a while then shows expiration warning | Token expired (normal, weeks later) | Re-run the setup script |
 
 ####  Manual Mode (no dependencies, all platforms)
 
@@ -184,7 +186,7 @@ The token is read from (in priority order):
 1. `DEEPSEEK_PLATFORM_TOKEN` environment variable
 2. `~/.claude/deepseek-hud/.platform_token` file
 
-> ⚠️ The platform token expires after **days to weeks**. When it does, Line 3 will show `⚠️ 登录过期 运行 setup-token 刷新` — just re-run the setup script.
+> ⚠️ The platform token expires after **days to weeks**. When it does, Line 3 shows a warning — just re-run the setup script.
 
 ## Setup
 
@@ -270,7 +272,7 @@ Three lines of output = success.
 | 🟡 Yellow (`💰`) | Session cost / balance-delta RMB |
 | 🔵 Cyan | Model name |
 | ⚪ White | Session input tokens / active model stats |
-| 🌫️ Dim | Output / inactive / zero / labels (`今日`,`总`,`估`)
+| 🌫️ Dim | Output / inactive / zero values / UI labels / hints
 
 ## Icons
 
@@ -290,11 +292,11 @@ Three lines of output = success.
 
 ## FAQ
 
-**Q: Why does Line 3 show `今日` with per-model estimates instead of real usage?**
+**Q: Why does Line 3 show per-model estimates instead of real usage?**
 
-A: You haven't configured the platform token yet. Run `bash ~/.claude/deepseek-hud/setup-token.sh` (or the PowerShell version) to set it up. Once configured, Line 3 will show real daily usage like `↑44.3M(⟳43.2M命中97%)↓226.8K`.
+A: You haven't configured the platform token yet. Run `bash ~/.claude/deepseek-hud/setup-token.sh` (or the PowerShell version) to set it up. Once configured, Line 3 shows real daily usage with cache breakdown.
 
-**Q: Line 3 stopped showing real daily usage and shows `⚠️ 登录过期` — what do I do?**
+**Q: Line 3 shows a token expiration warning — what do I do?**
 
 A: The platform token has expired. Run the setup script:
 ```bash
@@ -306,7 +308,7 @@ It'll guide you through extracting a fresh token. Takes about 30 seconds.
 
 A: Line 3 shows **total** tokens including cache hits. With a ~97% cache hit rate, most input tokens are served from cache. Line 2 shows **session-level** non-cached tokens only. Both are correct — they measure different things.
 
-**Q: What does `↑44.3M(⟳43.2M命中97%)` mean?**
+**Q: What does the daily usage display `↑44.3M(⟳43.2M hit 97%)` mean?**
 
 A: Total daily input is 44.3M tokens. Of those, 43.2M were cache hits (97% cache hit rate). The remaining ~1M were non-cached (sent to the model). This data comes directly from the DeepSeek platform usage API — the same source as their web dashboard.
 
