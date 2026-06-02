@@ -162,7 +162,17 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   }
 
   // Context window max size
-  const maxK = Math.round((ctx.context_window_size || 200000) / 1000);
+  // Claude Code often reports Anthropic defaults (200K) for third-party
+  // models.  Use known DeepSeek values when the model is identified.
+  const modelId = (data.model && data.model.id) || '';
+  const MODEL_CTX = {
+    'deepseek-v4-pro':   1_000_000,
+    'deepseek-v4-flash': 1_000_000,
+  };
+  const ctxSize = MODEL_CTX[modelId]
+    || ctx.context_window_size
+    || 200000;
+  const maxK = Math.round(ctxSize / 1000);
   line += ` ${fmt.C.dim}${maxK}K${fmt.C.reset}`;
 
   return line;
