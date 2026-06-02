@@ -112,7 +112,29 @@ function renderLine1(data, compacted) {
  */
 function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   const ctx   = data.context_window || {};
-  const pct   = Math.round(ctx.used_percentage || 0);
+
+  // Resolve real context window size — Claude Code often reports Anthropic
+  // defaults for third-party models.  Used for both the bar percentage and
+  // the max-size label.
+  const modelId = (data.model && data.model.id) || '';
+  const MODEL_CTX = {
+    'deepseek-v4-pro':   1_000_000,
+    'deepseek-v4-flash': 1_000_000,
+  };
+  const ctxSize = MODEL_CTX[modelId]
+    || ctx.context_window_size
+    || 200000;
+
+  // Recalculate percentage based on actual context size.
+  // Claude Code computes used_percentage against its (wrong) internal
+  // window size — override with the real number.
+  const usage = ctx.current_usage || {};
+  const ctxInput  = usage.input_tokens  || 0;
+  const ctxOutput = usage.output_tokens || 0;
+  const ctxTotal  = ctxInput + ctxOutput;
+  const pct = ctxTotal > 0
+    ? Math.round(ctxTotal / ctxSize * 100)
+    : Math.round(ctx.used_percentage || 0);
 
   // Bar + percentage
   let line = `${fmt.progressBar(pct)} ${pct}% ctx`;
@@ -124,9 +146,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   // Cache value comes from current_usage (point-in-time context snapshot),
   // NOT from sessionTokens, because cache_read_input_tokens is not a daily
   // cumulative field — it only reflects the current context window.
-  const usage = ctx.current_usage || {};
   const cache = usage.cache_read_input_tokens || 0;
-  const ctxInput = usage.input_tokens || 0;
 
   if (input > 0 || output > 0 || cache > 0) {
     line += ` | ${fmt.C.dim}${fmt.t('sessionLabel')}${fmt.C.reset} ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
@@ -161,17 +181,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
     line += ` | ${fmt.C.dim}💰 ¥0.0000 $0.0000${fmt.C.reset}`;
   }
 
-  // Context window max size
-  // Claude Code often reports Anthropic defaults (200K) for third-party
-  // models.  Use known DeepSeek values when the model is identified.
-  const modelId = (data.model && data.model.id) || '';
-  const MODEL_CTX = {
-    'deepseek-v4-pro':   1_000_000,
-    'deepseek-v4-flash': 1_000_000,
-  };
-  const ctxSize = MODEL_CTX[modelId]
-    || ctx.context_window_size
-    || 200000;
+  // Context window max size (model-aware — see top of function)
   line += ` ${fmt.C.dim}${fmt.formatTokens(ctxSize)}${fmt.C.reset}`;
 
   return line;
