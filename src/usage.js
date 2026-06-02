@@ -153,10 +153,33 @@ function platformUsage(token) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolve the platform Bearer token from multiple sources.
+ * Priority: env var → token file → null
+ *
+ * @returns {string}
+ */
+function resolveToken() {
+  // 1. Environment variable (user-set or system-wide)
+  const envToken = process.env.DEEPSEEK_PLATFORM_TOKEN || '';
+  if (envToken) return envToken;
+
+  // 2. Token file (written by setup-token.ps1 / setup-token.sh)
+  try {
+    const tokenFile = path.join(os.homedir(), '.claude', 'deepseek-hud', '.platform_token');
+    if (fs.existsSync(tokenFile)) {
+      const fileToken = fs.readFileSync(tokenFile, 'utf8').trim();
+      if (fileToken) return fileToken;
+    }
+  } catch (_) { /* ignore */ }
+
+  return '';
+}
+
+/**
  * Fetch real daily usage.
  *
- * Tries the platform API first (DEEPSEEK_PLATFORM_TOKEN), falls back to
- * the intercept.js daily file.  Results are cached for 60 seconds.
+ * Tries the platform API first (Bearer token from env var or token file),
+ * falls back to the intercept.js daily file.  Results are cached for 60 s.
  *
  * @returns {Promise<object|null>}
  *   { date, prompt_tokens, completion_tokens, prompt_cache_hit_tokens,
@@ -164,7 +187,7 @@ function platformUsage(token) {
  *   or null if no data source is available
  */
 async function fetchUsage() {
-  const token = process.env.DEEPSEEK_PLATFORM_TOKEN || '';
+  const token = resolveToken();
 
   if (token) {
     const now = Date.now();
