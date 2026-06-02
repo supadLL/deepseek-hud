@@ -302,5 +302,62 @@ https.request = patchedRequest;
 // Guard: don't double-patch if --require is loaded multiple times
 // ---------------------------------------------------------------------------
 
+// Monkey-patch global fetch (Node.js 18+ built-in, uses undici — bypasses
+// https.request entirely).  This is the primary HTTP client for modern
+// Node.js apps including Claude Code and the Anthropic SDK.
+const _originalFetch = globalThis.fetch;
+
+async function patchedFetch(input, init) {
+  // Resolve URL
+  let url;
+  try {
+    if (typeof input === 'string') {
+      url = input;
+    } else if (input instanceof Request) {
+      url = input.url;
+    } else if (input && input.url) {
+      url = input.url;
+    } else if (input && input.href) {
+      url = input.href;
+    } else {
+      url = String(input);
+    }
+  } catch (_) {
+    url = '';
+  }
+
+  const isDeepSeek = url.includes(DEEPSEEK_HOST);
+
+  if (!isDeepSeek) {
+    return _originalFetch.call(globalThis, input, init);
+  }
+
+  const date = today();
+
+  let response;
+  try {
+    response = await _originalFetch.call(globalThis, input, init);
+  } catch (err) {
+    throw err;  // don't swallow fetch errors
+  }
+
+  // Clone the response so we can read the body without consuming the
+  // original stream.  The clone is read for usage accumulation; the
+  // original is returned to the caller untouched.
+  try {
+    const cloned = response.clone();
+    const body = await cloned.text();
+    accumulate(date, body);
+  } catch (_) {
+    // Never throw from the interceptor — silently skip
+  }
+
+  return response;
+}
+
+globalThis.fetch = patchedFetch;
+
+// ---------------------------------------------------------------------------
+
 // Export for testing
 module.exports = { loadUsage, saveUsage, usagePath };
