@@ -331,6 +331,16 @@ echo '{"model":{"id":"deepseek-v4-pro"},"workspace":{"current_dir":"/path/to/pro
 
 ## 常见问题
 
+**Q: Emoji 图标（📁🌿💰💎）在 Windows 上显示为方框或乱码 — 怎么解决？**
+
+A: **这不是插件的问题**——是 Windows 旧版控制台（conhost.exe）不支持 Emoji 渲染。解决方案：
+
+1. 从 Microsoft Store 安装 **Windows Terminal**（免费）
+2. 打开 Windows Terminal → 设置 → 设为**默认终端应用程序**
+3. VS Code 中：`Ctrl+Shift+P` → `Terminal: Select Default Profile` → 选择 Windows Terminal
+
+Windows Terminal、macOS 终端、iTerm2 及大多数 Linux 终端均原生支持 Emoji——仅旧版 Windows 控制台有此问题。
+
 **Q: Line 3 显示的是"缓存估XX%"而不是真实数据，为什么？**
 
 A: 你还没配置平台 Token。运行 `bash ~/.claude/deepseek-hud/setup-token.sh`（或 PowerShell 版本）完成配置。配置成功后 Line 3 会显示真实用量 `↑44.3M(⟳43.2M命中97%)↓226.8K`。

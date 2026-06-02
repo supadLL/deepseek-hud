@@ -331,6 +331,16 @@ Three lines of output = success.
 
 ## FAQ
 
+**Q: Emoji icons (📁🌿💰💎) show as empty boxes or garbled on Windows — how to fix?**
+
+A: This is **not a plugin issue** — it's caused by the legacy Windows console (conhost.exe) which doesn't support emoji rendering. The fix is simple:
+
+1. Install **Windows Terminal** from the Microsoft Store (free)
+2. Open Windows Terminal → Settings → set as **Default terminal application**
+3. In VS Code: `Ctrl+Shift+P` → `Terminal: Select Default Profile` → choose Windows Terminal
+
+Windows Terminal, macOS Terminal, iTerm2, and most Linux terminals all support emoji natively — this only affects the old Windows console.
+
 **Q: Why does Line 3 show per-model estimates instead of real usage?**
 
 A: You haven't configured the platform token yet. Run `bash ~/.claude/deepseek-hud/setup-token.sh` (or the PowerShell version) to set it up. Once configured, Line 3 shows real daily usage with cache breakdown.
