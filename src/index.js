@@ -97,14 +97,20 @@ async function main() {
   let cacheRatio = 0;
 
   if (modelId && data.context_window) {
-    const result = updateTokens(state, modelId, data.context_window);
-    if (result) {
-      sessionTokens = result.sessionTokens;
+    updateTokens(state, modelId, data.context_window);
 
+    // Use model-stats accumulation for session tokens instead of the
+    // daily-total delta.  Claude Code's total_input_tokens / total_output_tokens
+    // can reset during long sessions (they're designed for Anthropic's API,
+    // not DeepSeek) which would zero out session-level deltas.
+    // Model stats accumulate per-call deltas and survive resets.
+    const m = state.models && state.models[modelId];
+    if (m) {
+      sessionTokens = { input: m.input || 0, output: m.output || 0, cache: m.cache || 0 };
+    }
+
+    if (sessionTokens.input > 0 || sessionTokens.output > 0) {
       // Estimate how many of the session input tokens were cache hits.
-      // We use the CURRENT context's cache ratio (cache / total-context-input)
-      // as a proxy for the session-wide ratio, because cache_read_input_tokens
-      // is a point-in-time snapshot, not a daily-cumulative field.
       const usage = data.context_window.current_usage || {};
       const ctxInput = usage.input_tokens || 0;
       const ctxCache = usage.cache_read_input_tokens || 0;
