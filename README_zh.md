@@ -86,12 +86,13 @@ deepseek-statusline/
 
 ### 会话 vs 今日 — Token 追踪
 
-Claude Code 传入的 `total_input_tokens` / `total_output_tokens` 是 **今日 API Key 级别累计值**，不是会话级别的：
+Claude Code 传入的 `total_input_tokens` / `total_output_tokens` 是 **今日 API Key 级别累计值**，对第三方模型可能在长会话中重置：
 
-- **会话开始**时快照当日累计为 `dailyBaseline`
-- **Line 2 会话 token** = 当日累计 − 会话起始基线（本次对话消耗）
-- **Line 3 今日 token** = 当日累计值 + `今日` 标签（所有会话总和）
+- **Line 2 会话 token** 按**每次调用的增量**累计到模型统计中——每次计算 `max(0, 当前值 − 上次值)` 累加到模型计数器。即使 Claude Code 重置了日累计值也不会丢失。
+- **Line 3 今日 token** = 平台 API 真实用量（所有会话总和，含缓存命中/未命中拆分）
+- **上下文占比** = `current_usage` 的 token 数（输入 + 输出 + 缓存）/ 模型真实窗口大小（v4=1M），保留两位小数
 - **缓存命中率** = `cache_read_input_tokens / (input_tokens + cache_read_input_tokens)`（当前上下文快照）
+- **会话花费** = 余额差值（实际消费）+ token 估算（即时参考）
 
 ### 多模型 Token 追踪
 
@@ -105,10 +106,11 @@ Claude Code 传入的 `total_input_tokens` / `total_output_tokens` 是 **今日 
 
 | 数据 | 来源 |
 |---|---|
-| 会话 token、成本、时长 | Claude Code 通过 stdin 传入的 JSON |
+| 会话 token 增量 | Claude Code stdin JSON，按模型累计到会话状态文件 |
 | DeepSeek 账户余额 | `GET https://api.deepseek.com/user/balance`（每 30 秒刷新） |
 | **真实每日用量**（Line 3） | `GET https://platform.deepseek.com/api/v0/usage/amount` — 与 DeepSeek 后台网页数据完全一致 |
-| 各模型 token 累计 | 会话状态文件（存储于系统临时目录 `os.tmpdir()`） |
+| 各模型 token 累计 | 会话状态文件（存储于系统临时目录 `os.tmpdir()`，会话重置后仍保留） |
+| 上下文窗口占用 | `current_usage`（输入 + 输出 + 缓存）/ 模型窗口（v4=1M） |
 | 缓存命中率（上下文） | `current_usage.cache_read_input_tokens` / `current_usage.input_tokens` |
 
 ### 平台 Token 配置（真实每日用量必配）

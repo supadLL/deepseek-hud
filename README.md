@@ -95,21 +95,23 @@ Tokens are attributed to the model that was active when they appeared:
 
 ### Session vs Daily — Token Tracking
 
-Claude Code sends **daily-cumulative** `total_input_tokens` / `total_output_tokens` (API-key-wide, not per-session):
+Claude Code sends **daily-cumulative** `total_input_tokens` / `total_output_tokens` (API-key-wide, not per-session) which can reset during long sessions for third-party models:
 
-- **Session start** snapshots the daily totals as `dailyBaseline`
-- **Line 2 session tokens** = daily cumulative − session baseline (this conversation)
-- **Line 3 daily totals** = real usage from the DeepSeek platform API (all sessions today, including cache hits)
+- **Line 2 session tokens** are accumulated per-model via **per-call deltas** — each invocation computes `max(0, current − previous)` and adds to the model counter. This survives daily-total resets that Claude Code may trigger for non-Anthropic providers.
+- **Line 3 daily totals** = real usage from the DeepSeek platform API (all sessions today, including cache hits and cache-miss breakdown)
+- **Context percentage** is computed from `current_usage` token counts (input + output + cache) divided by the real model context window (1M for v4), displayed to 2 decimal places
 - **Cache hit rate** = `cache_read_input_tokens / (input_tokens + cache_read_input_tokens)` (current context snapshot)
+- **Session cost** = balance delta (initial − current) for real RMB, plus token-estimate for instant feedback
 
 ### Data Sources
 
 | Data | Source |
 |---|---|
-| Session tokens, cost, duration | Claude Code session JSON via stdin |
+| Session token deltas | Claude Code session JSON via stdin, accumulated per-model in session state |
 | DeepSeek account balance | `GET https://api.deepseek.com/user/balance` (cached 30s) |
 | **Real daily usage** (Line 3) | `GET https://platform.deepseek.com/api/v0/usage/amount` — the same data as the DeepSeek web dashboard |
-| Per-model token counters | Session state file in `os.tmpdir()` |
+| Per-model token counters | Session state file in `os.tmpdir()` (survives session resets) |
+| Context window usage | `current_usage` input + output + cache / model-aware window size (1M for v4) |
 | Cache hit rate (context) | `current_usage.cache_read_input_tokens` / `current_usage.input_tokens` |
 
 ### Platform Token Setup (Required for Real Daily Usage)
