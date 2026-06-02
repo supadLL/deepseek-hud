@@ -140,16 +140,17 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   //      Less accurate for overhead, BUT keeps growing past CC's cap.
   const claudePct     = ctx.used_percentage || 0;
   const claudeCtxSize = ctx.context_window_size || 200000;
-  const scaledPct     = Math.round(claudePct * claudeCtxSize / ctxSize);
-  const directPct     = Math.round((ctxInput + ctxOutput + ctxCache) / ctxSize * 100);
+  const scaledPct     = claudePct * claudeCtxSize / ctxSize;
+  const directPct     = (ctxInput + ctxOutput + ctxCache) / ctxSize * 100;
   let pct = Math.max(scaledPct, directPct);
 
-  // Floor at 1% when there IS context usage so we never show 0%
+  // Floor at 0.01% when there IS context usage so we never show 0.00%
   // after /compact (small summary < 5K tokens = sub-1% on 1M).
-  if (pct === 0 && claudePct > 0) pct = 1;
+  if (pct < 0.01 && claudePct > 0) pct = 0.01;
 
-  // Bar + percentage
-  let line = `${fmt.progressBar(pct)} ${pct}% ctx`;
+  // Bar (uses integer) + percentage (2 decimal places)
+  const pctInt = Math.round(pct);
+  let line = `${fmt.progressBar(pctInt)} ${pct.toFixed(2)}% ctx`;
 
   // Token breakdown — session-level cumulative (daily delta from session start)
   const input  = (sessionTokens && sessionTokens.input)  || 0;
