@@ -302,6 +302,22 @@ https.request = patchedRequest;
 // Guard: don't double-patch if --require is loaded multiple times
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Diagnostic marker: write a tiny file when this module loads.
+// If this file exists, NODE_OPTIONS is working.
+// If it doesn't, the interceptor was never loaded into the Claude Code process.
+// ---------------------------------------------------------------------------
+try {
+  fs.writeFileSync(
+    path.join(os.tmpdir(), 'claude-ds-intercept-loaded.txt'),
+    `intercept.js loaded at ${new Date().toISOString()}\npid=${process.pid}\n` +
+    `node=${process.version}\n`,
+    'utf8'
+  );
+} catch (_) { /* best-effort */ }
+
+// ---------------------------------------------------------------------------
+
 // Monkey-patch global fetch (Node.js 18+ built-in, uses undici — bypasses
 // https.request entirely).  This is the primary HTTP client for modern
 // Node.js apps including Claude Code and the Anthropic SDK.
