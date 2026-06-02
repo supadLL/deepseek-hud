@@ -160,25 +160,33 @@ else
 fi
 
 INTERCEPT_PATH="$INSTALL_DIR/src/intercept.js"
-ALIAS_LINE="alias claude='NODE_OPTIONS=\"--require ${INTERCEPT_PATH}\" claude'"
 
-# Only add if not already present
-if [ -f "$RC_FILE" ] && grep -q "deepseek-hud.*intercept" "$RC_FILE" 2>/dev/null; then
-  info "Usage interceptor alias already configured in ${RC_FILE}"
+# Clean up old alias-style configs
+if [ -f "$RC_FILE" ]; then
+  sed -i '/^alias claude=.*deepseek-hud/d' "$RC_FILE" 2>/dev/null || true
+  sed -i '/^# DeepSeek HUD.*real usage tracking/,/^}/d' "$RC_FILE" 2>/dev/null || true
+fi
+
+if grep -q "deepseek-hud.*intercept" "$RC_FILE" 2>/dev/null; then
+  info "Usage interceptor already configured in ${RC_FILE}"
 else
+  # Write a shell function (not an alias) to avoid recursion.
+  # `command claude` bypasses the function and runs the real binary.
   {
     echo ""
     echo "# DeepSeek HUD — real usage tracking"
     echo "# Injects intercept.js to capture actual DeepSeek API token counts"
-    echo "$ALIAS_LINE"
+    echo "claude() {"
+    echo "  NODE_OPTIONS=\"--require ${INTERCEPT_PATH}\" command claude \"\$@\""
+    echo "}"
   } >> "$RC_FILE"
-  success "Added intercept alias to ${RC_FILE}"
-  echo ""
-  echo -e "  ${YELLOW}⚠  Reload your shell to activate:${RESET}"
-  echo -e "     ${CYAN}source ${RC_FILE}${RESET}"
-  echo -e "  ${YELLOW}⚠  Use 'claude' (the alias) instead of the raw binary${RESET}"
-  echo -e "     to enable real usage tracking."
+  success "Added intercept function to ${RC_FILE}"
 fi
+
+echo ""
+echo -e "  ${YELLOW}Reload your shell, then type ${CYAN}claude${YELLOW} as usual:${RESET}"
+echo -e "    ${CYAN}source ${RC_FILE}${RESET}"
+echo -e "    ${CYAN}claude${RESET}"
 
 # ---------------------------------------------------------------------------
 # Done
