@@ -212,7 +212,7 @@ Chinese (default) | English
 `总` | `total`
 `暂无数据` | `no data`
 `(缓存)` | `(stale)`
-`⚠️ 登录过期` / `运行 setup-token 刷新` | `⚠️ token expired` / `run setup-token`
+`⚠️ 用量凭证过期` / `运行 setup-token 刷新` | `⚠️ platform login expired` / `run setup-token to refresh`
 
 ## Setup
 

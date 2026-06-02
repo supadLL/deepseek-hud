@@ -183,9 +183,9 @@ const MSGS = {
   staleCacheLabel:{ zh: '(缓存)',       en: '(stale)' },
   noDataLabel:    { zh: '暂无数据',     en: 'no data' },
 
-  // --- Token expired ---
-  tokenExpired:   { zh: '⚠️ 登录过期',  en: '⚠️ token expired' },
-  tokenHint:      { zh: '运行 setup-token 刷新', en: 'run setup-token' },
+  // --- Platform session expired (NOT the API key) ---
+  tokenExpired:   { zh: '⚠️ 用量凭证过期',  en: '⚠️ platform login expired' },
+  tokenHint:      { zh: '运行 setup-token 刷新', en: 'run setup-token to refresh' },
 };
 
 /**

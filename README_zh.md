@@ -154,7 +154,7 @@ powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Force
 | 提示 `Playwright not found` | 未安装 Playwright | `npm install -g playwright` |
 | 提示 `No supported browser found` | 未装 Chrome/Edge/Brave/Chromium | 安装任一浏览器，或使用手动模式 |
 | Token 拿到了但 Line 3 还是估算 | 浏览器中未登录 DeepSeek | 先在浏览器登录 `platform.deepseek.com`，再重试 |
-| 用了一段时间后显示 `⚠️ 登录过期` | Token 过期（正常的，几周后） | 重新运行 setup 脚本 |
+| 用了一段时间后显示 `⚠️ 用量凭证过期` | Token 过期（正常的，几周后） | 重新运行 setup 脚本 |
 
 ####  手动模式（无需安装依赖，全平台通用）
 
@@ -185,7 +185,7 @@ powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 1. `DEEPSEEK_PLATFORM_TOKEN` 环境变量
 2. `~/.claude/deepseek-hud/.platform_token` 文件
 
-> ⚠️ 平台 Token 有效期**几天到几周**。过期时 Line 3 会显示 `⚠️ 登录过期 运行 setup-token 刷新`，重新运行 setup 脚本即可。
+> ⚠️ 平台 Token 有效期**几天到几周**。过期时 Line 3 会显示 `⚠️ 用量凭证过期 运行 setup-token 刷新`，重新运行 setup 脚本即可。
 
 ### 语言设置
 
@@ -211,7 +211,7 @@ $env:DEEPSEEK_HUD_LANG = "en"
 `总` | `total`
 `暂无数据` | `no data`
 `(缓存)` | `(stale)`
-`⚠️ 登录过期` / `运行 setup-token 刷新` | `⚠️ token expired` / `run setup-token`
+`⚠️ 用量凭证过期` / `运行 setup-token 刷新` | `⚠️ platform login expired` / `run setup-token to refresh`
 
 ## 安装配置
 
@@ -322,7 +322,7 @@ echo '{"model":{"id":"deepseek-v4-pro"},"workspace":{"current_dir":"/path/to/pro
 
 A: 你还没配置平台 Token。运行 `bash ~/.claude/deepseek-hud/setup-token.sh`（或 PowerShell 版本）完成配置。配置成功后 Line 3 会显示真实用量 `↑44.3M(⟳43.2M命中97%)↓226.8K`。
 
-**Q: Line 3 显示 `⚠️ 登录过期 运行 setup-token 刷新` — 怎么办？**
+**Q: Line 3 显示 `⚠️ 用量凭证过期 运行 setup-token 刷新` — 怎么办？**
 
 A: 平台 Token 过期了。运行 setup 脚本重新获取，30 秒搞定：
 ```bash
