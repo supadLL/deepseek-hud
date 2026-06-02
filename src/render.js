@@ -125,7 +125,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   const ctxInput = usage.input_tokens || 0;
 
   if (input > 0 || output > 0 || cache > 0) {
-    line += ` | ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
+    line += ` | ${fmt.C.dim}本会话${fmt.C.reset} ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
     line += ` ${fmt.C.dim}↓${fmt.formatTokens(output)}${fmt.C.reset}`;
     // Cache-hit rate: what share of current-context input came from cache?
     const denom = ctxInput + cache;
@@ -136,7 +136,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
       line += ` ${fmt.C.dim}⟳0(0%)${fmt.C.reset}`;
     }
   } else {
-    line += ` | ${fmt.C.dim}—${fmt.C.reset}`;
+    line += ` | ${fmt.C.dim}本会话 —${fmt.C.reset}`;
   }
 
   // Cost: balance-delta RMB (real) + token estimate + USD reference
