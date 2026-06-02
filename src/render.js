@@ -172,8 +172,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   const ctxSize = MODEL_CTX[modelId]
     || ctx.context_window_size
     || 200000;
-  const maxK = Math.round(ctxSize / 1000);
-  line += ` ${fmt.C.dim}${maxK}K${fmt.C.reset}`;
+  line += ` ${fmt.C.dim}${fmt.formatTokens(ctxSize)}${fmt.C.reset}`;
 
   return line;
 }
