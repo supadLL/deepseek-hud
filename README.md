@@ -24,14 +24,14 @@ Three lines rendered at the bottom of your terminal:
 ```
 [deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 15m 0s
 ███████░░░ 72% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.025) $0.035 200K
-💎 ¥110.00(充) | 今日 v4-pro↑150K↓25K v4-flash↑5K | 总↑180K↓30K | ✅
+💎 ¥110.00(充) | 今日 v4-pro↑150K↓25K缓存估98% v4-flash↑5K | 总↑180K↓30K | ✅
 ```
 
 | Line | Content | Description |
 |---|---|---|
 | 1 | **Session Identity** | Model name, project directory, Git branch, effort level, duration |
 | 2 | **Session Resources** | Context window bar (green/yellow/red), `本会话` label + **session-level** tokens (↑in ↓out), cache hit rate (⟳X(X%)), cost (balance-delta RMB + token estimate + USD) |
-| 3 | **Balance & Daily Totals** | DeepSeek balance, `今日` label + **daily-cumulative** per-model tokens, `总` daily sum, availability |
+| 3 | **Balance & Daily Totals** | DeepSeek balance, `今日` label + **daily-cumulative** per-model tokens + estimated cache rate (`缓存估98%`), `总` daily sum, availability |
 
 ## Features
 

@@ -93,6 +93,7 @@ async function main() {
   const modelId = data.model?.id || data.model?.display_name || '';
   let sessionTokens = { input: 0, output: 0, cache: 0 };
   let estimatedCost = 0;
+  let cacheRatio = 0;
 
   if (modelId && data.context_window) {
     const result = updateTokens(state, modelId, data.context_window);
@@ -107,7 +108,7 @@ async function main() {
       const ctxInput = usage.input_tokens || 0;
       const ctxCache = usage.cache_read_input_tokens || 0;
       const ctxTotal  = ctxInput + ctxCache;
-      const cacheRatio = ctxTotal > 0 ? ctxCache / ctxTotal : 0;
+      cacheRatio = ctxTotal > 0 ? ctxCache / ctxTotal : 0;
       const estimatedCache = Math.round(sessionTokens.input * cacheRatio);
 
       estimatedCost = estimateCost(
@@ -127,7 +128,7 @@ async function main() {
 
   console.log(renderLine1(data));
   console.log(renderLine2(data, sessionCost, data.cost?.total_cost_usd || 0, estimatedCost, sessionTokens));
-  console.log(renderLine3(balance, stale, modelStats, modelId));
+  console.log(renderLine3(balance, stale, modelStats, modelId, cacheRatio));
 }
 
 // ---------------------------------------------------------------------------

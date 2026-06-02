@@ -180,18 +180,22 @@ function shortModelName(full) {
  * Format: `v4-pro↑150K↓25K v4-flash↑5K`
  *
  * Active model is highlighted.  Models with 0 tokens show just the name
- * in dim grey.  Cache tokens are intentionally omitted — the data source
- * (current_usage.cache_read_input_tokens) is a context snapshot, not a
- * daily-cumulative field, so the daily cache rate would be misleading.
+ * in dim grey.
  *
  * These are DAILY-CUMULATIVE totals (per the session state), not
  * session-level numbers.  The caller should prefix with "今日" for clarity.
  *
+ * If `cacheRatio` is provided (> 0), an estimated daily cache-hit rate
+ * is appended to the active model.  The estimate uses the current context
+ * snapshot ratio because Claude Code does not expose daily-cumulative
+ * cache data.
+ *
  * @param {object} modelStats   - per-model token counters from session state
  * @param {string} activeModel  - currently-active model ID
+ * @param {number} [cacheRatio] - estimated cache-hit ratio (0-1) from context
  * @returns {string}
  */
-function renderModelStats(modelStats, activeModel) {
+function renderModelStats(modelStats, activeModel, cacheRatio) {
   const modelIds = Object.keys(modelStats).length > 0
     ? Object.keys(modelStats).sort()
     : ['deepseek-v4-pro', 'deepseek-v4-flash'];
@@ -208,10 +212,11 @@ function renderModelStats(modelStats, activeModel) {
       const items = [];
       if (v.input  > 0) items.push(`↑${fmt.formatTokens(v.input)}`);
       if (v.output > 0) items.push(`↓${fmt.formatTokens(v.output)}`);
-      // Note: we intentionally do NOT show a daily cache-hit rate here.
-      // cache_read_input_tokens is a context-snapshot (not cumulative),
-      // so model.cache undercounts daily cache by orders of magnitude.
-      // The accurate daily cache rate is only available on DeepSeek's backend.
+      // Estimated daily cache rate (from current context snapshot)
+      if (cacheRatio > 0 && isActive) {
+        const pct = Math.round(cacheRatio * 100);
+        items.push(`${fmt.C.dim}缓存估${pct}%${fmt.C.reset}`);
+      }
       return `${color}${short}${items.join('')}${fmt.C.reset}`;
     }
     // Zero tokens — show name only, very dim
@@ -224,18 +229,20 @@ function renderModelStats(modelStats, activeModel) {
 /**
  * Render the DeepSeek balance + daily model usage line.
  *
- * Format: `💎 ¥5.06(充) | 今日 v4-pro↑150K↓25K v4-flash↑5K | ✅`
+ * Format: `💎 ¥5.06(充) | 今日 v4-pro↑150K↓25K 缓存估98% v4-flash↑5K | 总↑180K↓30K | ✅`
  *
  * The model stats are DAILY-CUMULATIVE totals (accumulated across all
- * sessions today).  Session-level cost is on Line 2.
+ * sessions today).  The cache rate is estimated from the current context
+ * snapshot ratio (Claude Code does not expose daily-cumulative cache data).
  *
  * @param {object|null} balance     - balance API response, or null
  * @param {boolean}     [stale]     - whether the data came from stale cache
  * @param {object}      modelStats  - per-model token counters (daily cumulative)
  * @param {string}      activeModel - currently-active model ID
+ * @param {number}      [cacheRatio] - estimated cache-hit ratio (0-1)
  * @returns {string}
  */
-function renderLine3(balance, stale, modelStats, activeModel) {
+function renderLine3(balance, stale, modelStats, activeModel, cacheRatio) {
   const out = [];
 
   // --- Balance section ---
@@ -259,7 +266,7 @@ function renderLine3(balance, stale, modelStats, activeModel) {
   }
 
   // --- Model usage (daily cumulative token counts) ---
-  const stats = renderModelStats(modelStats, activeModel);
+  const stats = renderModelStats(modelStats, activeModel, cacheRatio);
   if (stats) {
     out.push(`${fmt.C.dim}今日${fmt.C.reset} ${stats}`);
   }
