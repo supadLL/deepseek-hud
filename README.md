@@ -24,26 +24,28 @@ Three lines rendered at the bottom of your terminal:
 ```
 [deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 15m 0s
 ███████░░░ 72% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.025) $0.035 200K
-💎 ¥110.00(充) | 今日 v4-pro↑150K↓25K缓存估98% v4-flash↑5K | 总↑180K↓30K | ✅
+💎 ¥110.00(充) | 今日 ↑44.3M(⟳43.2M命中97%)↓226.8K | ✅
 ```
 
 | Line | Content | Description |
 |---|---|---|
 | 1 | **Session Identity** | Model name, project directory, Git branch, effort level, duration |
 | 2 | **Session Resources** | Context window bar (green/yellow/red), `本会话` label + **session-level** tokens (↑in ↓out), cache hit rate (⟳X(X%)), cost (balance-delta RMB + token estimate + USD) |
-| 3 | **Balance & Daily Totals** | DeepSeek balance, `今日` label + **daily-cumulative** per-model tokens + estimated cache rate (`缓存估98%`), `总` daily sum, availability |
+| 3 | **Balance & Daily Totals** | DeepSeek balance, `今日` label + **real** daily usage from platform API: total input (cached + non-cached), cache breakdown `(⟳X命中Y%)`, daily output, availability |
 
 ## Features
 
 - **Real RMB Cost** — tracks actual spending via DeepSeek balance delta (`initial − current`), plus session-level token-based cost estimate (`估¥X.XXXX`)
-- **Cache Hit Rate** — shows `⟳4.5K(24%)` — cache tokens and the percentage of context input served from cache
-- **Session vs Daily** — Line 2 shows **session-level** tokens (this conversation), Line 3 shows **daily-cumulative** totals with `今日` label and `总` sum
+- **Real Daily Usage** — fetches actual token consumption from `platform.deepseek.com/api/v0/usage/amount` (the same data shown in the DeepSeek dashboard), including cache-hit/miss breakdown
+- **Cache Hit Rate** — shows `⟳4.5K(24%)` for context-level cache rate; shows `⟳43.2M命中97%` for daily cache breakdown on Line 3
+- **Session vs Daily** — Line 2 shows **session-level** tokens (this conversation), Line 3 shows **daily-cumulative** totals with `今日` label from the real platform API
 - **Multi-Model Tracking** — displays cumulative token counts for each model (`deepseek-v4-pro` / `deepseek-v4-flash`), highlighting the active one
 - **Dual Currency** — shows both Claude Code's USD estimate and the real CNY balance-delta cost
 - **30s Balance Cache** — avoids rate-limiting the DeepSeek API
 - **Session Persistence** — token counters survive `/compact` and model switches
 - **Top-Up Detection** — resets cost baseline if balance increases (e.g. after topping up)
 - **Graceful Degradation** — renders session lines even when the balance API is unreachable
+- **Compaction Detection** — shows `🗜️` icon when context window was compacted
 
 ## Project Structure
 
@@ -56,7 +58,13 @@ deepseek-statusline/
 │   ├── render.js           # 3-line ANSI HUD renderer (colors + progress bar)
 │   ├── balance.js          # DeepSeek balance API client (30s file cache)
 │   ├── session.js          # Session state: balance delta + per-model tokens
-│   └── format.js           # Formatters: duration, tokens, currency, ANSI codes
+│   ├── usage.js            # Daily usage: platform API + intercept.js fallback
+│   ├── format.js           # Formatters: duration, tokens, currency, ANSI codes
+│   └── intercept.js        # HTTPS/fetch monkey-patch (loaded via NODE_OPTIONS)
+├── install.sh              # One-command installer (macOS / Linux / Git Bash)
+├── install.ps1             # One-command installer (Windows PowerShell)
+├── setup-token.sh          # Platform token setup helper (macOS / Linux)
+├── setup-token.ps1         # Platform token setup helper (Windows PowerShell)
 ├── package.json
 ├── .gitignore
 ├── README.md
@@ -97,8 +105,51 @@ Claude Code sends **daily-cumulative** `total_input_tokens` / `total_output_toke
 |---|---|
 | Session tokens, cost, duration | Claude Code session JSON via stdin |
 | DeepSeek account balance | `GET https://api.deepseek.com/user/balance` (cached 30s) |
+| **Real daily usage** (Line 3) | `GET https://platform.deepseek.com/api/v0/usage/amount` — the same data as the DeepSeek web dashboard |
 | Per-model token counters | Session state file in `os.tmpdir()` |
-| Cache hit rate | `current_usage.cache_read_input_tokens` / `current_usage.input_tokens` |
+| Cache hit rate (context) | `current_usage.cache_read_input_tokens` / `current_usage.input_tokens` |
+
+### Platform Token Setup (Required for Real Daily Usage)
+
+Line 3 shows **real** daily token usage from the DeepSeek platform API. This requires a Bearer token from your browser session.
+
+**Quick setup** (recommended):
+
+```bash
+# macOS / Linux / Git Bash
+bash ~/.claude/deepseek-hud/setup-token.sh
+```
+
+```powershell
+# Windows PowerShell
+powershell -File ~/.claude/deepseek-hud/setup-token.ps1
+```
+
+This opens the DeepSeek platform in your browser and guides you through extracting the token.
+
+**Manual setup**:
+
+1. Open https://platform.deepseek.com/usage in your browser
+2. Press F12 → **Network** tab
+3. Refresh the page, click any `/api/v0/usage/amount` request
+4. Under **Request Headers**, copy the value after `Bearer ` in the `Authorization` header
+5. Save it to `~/.claude/deepseek-hud/.platform_token`:
+
+```bash
+echo -n "你的token值" > ~/.claude/deepseek-hud/.platform_token
+```
+
+Or set it as an environment variable:
+
+```bash
+export DEEPSEEK_PLATFORM_TOKEN="你的token值"
+```
+
+The token is read from (in priority order):
+1. `DEEPSEEK_PLATFORM_TOKEN` environment variable
+2. `~/.claude/deepseek-hud/.platform_token` file
+
+> ⚠️ The platform token expires after days/weeks. When Line 3 stops showing real data, run the setup script again.
 
 ## Setup
 
@@ -119,6 +170,17 @@ The installer:
 2. Clones the repo to `~/.claude/deepseek-hud/`
 3. Configures `~/.claude/settings.json` automatically
 4. Runs a smoke test to verify
+5. Configures real usage tracking (NODE_OPTIONS wrapper for shell profile)
+
+**After installation**, set up your platform token for real daily usage display:
+
+```bash
+# macOS / Linux / Git Bash
+bash ~/.claude/deepseek-hud/setup-token.sh
+
+# Windows PowerShell
+powershell -File ~/.claude/deepseek-hud/setup-token.ps1
+```
 
 To **upgrade**, re-run the same command (it does `git pull`).
 
@@ -182,6 +244,7 @@ Three lines of output = success.
 | ↑ | Input tokens |
 | ↓ | Output tokens |
 | ⟳ | Cache-read tokens (prompt cache hits) |
+| 🗜️ | Context window compaction detected |
 | 💰 | Cost (USD estimate + real RMB) |
 | 💎 | DeepSeek account balance |
 | 📊 | Per-model token statistics |
@@ -189,6 +252,35 @@ Three lines of output = success.
 | 📁 | Project directory |
 | 🌿 | Git branch |
 | 💤⚡🔥🚀💥 | Effort level: low / medium / high / xhigh / max |
+
+## FAQ
+
+**Q: Why does Line 3 show `今日` with per-model estimates instead of real usage?**
+
+A: You haven't configured the platform token yet. Run `bash ~/.claude/deepseek-hud/setup-token.sh` (or the PowerShell version) to set it up. Once configured, Line 3 will show real daily usage like `↑44.3M(⟳43.2M命中97%)↓226.8K`.
+
+**Q: Line 3 stopped showing real daily usage — why?**
+
+A: The platform token has likely expired (tokens last days to weeks). Run the setup script again:
+```bash
+bash ~/.claude/deepseek-hud/setup-token.sh
+```
+
+**Q: Why is the daily input number so large (40M+) while Line 2 shows much smaller numbers?**
+
+A: Line 3 shows **total** tokens including cache hits. With a ~97% cache hit rate, most input tokens are served from cache. Line 2 shows **session-level** non-cached tokens only. Both are correct — they measure different things.
+
+**Q: What does `↑44.3M(⟳43.2M命中97%)` mean?**
+
+A: Total daily input is 44.3M tokens. Of those, 43.2M were cache hits (97% cache hit rate). The remaining ~1M were non-cached (sent to the model). This data comes directly from the DeepSeek platform usage API — the same source as their web dashboard.
+
+**Q: The balance shows `¥0.0000` — is it broken?**
+
+A: No. Balance cost is calculated from the actual DeepSeek balance delta (initial − current). It may show 0 if the balance hasn't dropped yet, if there's API latency, or if you've been within the free tier. Wait a few API calls.
+
+**Q: Does this work with other model providers (OpenAI, Anthropic)?**
+
+A: No. This plugin is specifically designed for DeepSeek API users. The balance API, pricing tables, and usage API are all DeepSeek-specific. Fork the repo if you'd like to adapt it for another provider.
 
 ## License
 
