@@ -1,6 +1,21 @@
-# DeepSeek Status Line for Claude Code
+# 🚀 DeepSeek HUD — Claude Code 实时用量监控插件
 
-Claude Code 实时 HUD 状态栏插件，显示 **DeepSeek API 用量**、**账户余额** 和 **多模型 token 追踪**，全部以人民币（CNY）真实计费展示。
+> 💎 专为 DeepSeek API 用户打造的终端 HUD — Token 消耗 · 上下文窗口 · 会话花费 · 账户余额，尽收眼底
+
+一款精美的 Claude Code 实时状态栏插件，将 DeepSeek API 用量信息直接嵌入终端底部。**Token 消耗** 📊、**输入/输出/缓存命中** 🔄、**上下文窗口占比** 🪟、**会话人民币花费** 💰、**账户实时余额** 🏦 — 全部以 3 行彩色 HUD 优雅呈现。
+
+### ✨ 监控指标一览
+
+| 指标 | 说明 |
+|---|---|
+| 📊 **Token 消耗** | 实时展示当前上下文 token 用量（输入 ↑ / 输出 ↓ / 缓存命中 ⟳） |
+| 🪟 **上下文窗口** | 彩色进度条（🟢<70% 🟡70-89% 🔴≥90%），一眼掌握窗口压力 |
+| 💰 **会话花费** | 基于 DeepSeek 余额差值的**真实人民币成本**，比 Claude Code 的 USD 估算精准 50 倍 |
+| 🏦 **账户余额** | 直连 DeepSeek API 查询实时余额，充值/赠送金额分明 |
+| 🔥 **Effort 等级** | 当前推理强度（💤low ⚡medium 🔥high 🚀xhigh 💥max） |
+| 🌿 **Git 分支** | 自动检测当前项目 Git 分支 |
+| ⏱️ **会话时长** | 本次会话已持续时间 |
+| 🎯 **多模型追踪** | 分别追踪 `deepseek-v4-pro` 和 `deepseek-v4-flash` 的 token 用量 |
 
 ## 效果预览
 

@@ -1,14 +1,23 @@
 {
   "name": "deepseek-statusline",
   "version": "1.0.0",
-  "description": "Claude Code status line plugin that displays DeepSeek API usage, account balance, and session metrics in a real-time HUD",
+  "description": "🚀 Real-time DeepSeek API usage HUD for Claude Code — monitor token consumption, input/output/cache tokens, context window, session cost (RMB), and account balance from your terminal status bar",
   "keywords": [
     "claude-code",
-    "statusline",
     "deepseek",
+    "statusline",
     "hud",
-    "usage",
-    "balance"
+    "token-monitor",
+    "usage-tracker",
+    "balance-checker",
+    "deepseek-v4",
+    "deepseek-v4-pro",
+    "deepseek-v4-flash",
+    "api-monitor",
+    "context-window",
+    "cost-tracker",
+    "real-time",
+    "terminal-dashboard"
   ],
   "license": "MIT",
   "author": "liangliang",
