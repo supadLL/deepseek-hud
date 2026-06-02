@@ -14,7 +14,7 @@ const { renderLine1, renderLine2, renderLine3 } = require('./render');
 const { fetchBalance, readStaleCache } = require('./balance');
 const { loadState, saveState, updateBalance, updateTokens, checkCompaction } = require('./session');
 const { C, estimateCost } = require('./format');
-const { readUsage } = require('./usage');
+const { fetchUsage } = require('./usage');
 
 // ---------------------------------------------------------------------------
 // stdin reader
@@ -129,7 +129,7 @@ async function main() {
   saveState(sessionId, state);
 
   // 7. Read real daily usage (from intercept.js, if available) --------------
-  const realUsage = readUsage();
+  const realUsage = await fetchUsage();
 
   // 8. Render HUD ----------------------------------------------------------
   const modelStats = state.models || {};
