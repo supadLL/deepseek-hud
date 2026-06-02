@@ -218,6 +218,9 @@ function patchedRequest(opts, ...args) {
     ? (() => { try { return new URL(opts).hostname; } catch (_) { return ''; } })()
     : (opts.hostname || opts.host || '');
 
+  // Debug: log ALL hosts seen by https.request
+  debugHost('https', hostname, typeof opts === 'string' ? opts : '');
+
   const isDeepSeek = hostname === DEEPSEEK_HOST;
 
   if (!isDeepSeek) {
@@ -304,8 +307,6 @@ https.request = patchedRequest;
 
 // ---------------------------------------------------------------------------
 // Diagnostic marker: write a tiny file when this module loads.
-// If this file exists, NODE_OPTIONS is working.
-// If it doesn't, the interceptor was never loaded into the Claude Code process.
 // ---------------------------------------------------------------------------
 try {
   fs.writeFileSync(
@@ -315,6 +316,18 @@ try {
     'utf8'
   );
 } catch (_) { /* best-effort */ }
+
+// ---------------------------------------------------------------------------
+// Debug: log ALL intercepted hostnames to a file so we can see what
+// Claude Code is actually connecting to.
+// ---------------------------------------------------------------------------
+const DEBUG_LOG = path.join(os.tmpdir(), 'claude-ds-debug-hosts.txt');
+function debugHost(tag, hostname, url) {
+  try {
+    const line = `${new Date().toISOString()} [${tag}] host=${hostname || '-'} url=${url || '-'}\n`;
+    fs.appendFileSync(DEBUG_LOG, line, 'utf8');
+  } catch (_) { /* best-effort */ }
+}
 
 // ---------------------------------------------------------------------------
 
@@ -343,6 +356,9 @@ async function patchedFetch(input, init) {
   }
 
   const isDeepSeek = url.includes(DEEPSEEK_HOST);
+
+  // Debug: log ALL hosts seen by fetch
+  debugHost('fetch', '', url);
 
   if (!isDeepSeek) {
     return _originalFetch.call(globalThis, input, init);
