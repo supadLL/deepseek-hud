@@ -1,0 +1,248 @@
+/**
+ * DeepSeek API usage interceptor.
+ *
+ * Monkey-patches `https.request` to capture `usage` fields from DeepSeek
+ * API responses.  Accumulated daily totals are written to a JSON file so
+ * the status-line renderer can display REAL token counts (including cache
+ * hits) instead of estimates.
+ *
+ * ## Setup (handled by installer)
+ *
+ * This module is loaded via Node.js `--require`:
+ *
+ *   NODE_OPTIONS="--require /path/to/src/intercept.js" claude
+ *
+ * It runs INSIDE Claude Code's process and intercepts all HTTPS traffic
+ * transparently — no proxy, no certificates, no port conflicts.
+ *
+ * ## Usage file
+ *
+ *   os.tmpdir()/claude-ds-usage-YYYY-MM-DD.json
+ *
+ * Format:
+ *   {
+ *     "date": "2026-06-02",
+ *     "prompt_tokens": 115238,
+ *     "completion_tokens": 79542,
+ *     "prompt_cache_hit_tokens": 11161344,
+ *     "prompt_cache_miss_tokens": 115238,
+ *     "total_tokens": 11356124,
+ *     "request_count": 156
+ *   }
+ *
+ * @module intercept
+ */
+
+'use strict';
+
+const https = require('https');
+const fs    = require('fs');
+const path  = require('path');
+const os    = require('os');
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+const DEEPSEEK_HOST = 'api.deepseek.com';
+const WRITE_DEBOUNCE_MS = 5000;  // batch writes — not every request
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function usagePath(date) {
+  return path.join(os.tmpdir(), `claude-ds-usage-${date}.json`);
+}
+
+function loadUsage(date) {
+  try {
+    const file = usagePath(date);
+    if (fs.existsSync(file)) {
+      return JSON.parse(fs.readFileSync(file, 'utf8'));
+    }
+  } catch (_) { /* ignore */ }
+  return {
+    date,
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    prompt_cache_hit_tokens: 0,
+    prompt_cache_miss_tokens: 0,
+    total_tokens: 0,
+    request_count: 0,
+  };
+}
+
+function saveUsage(usage) {
+  try {
+    const tmp = usagePath(usage.date) + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(usage), 'utf8');
+    fs.renameSync(tmp, usagePath(usage.date));
+  } catch (_) { /* best-effort */ }
+}
+
+// ---------------------------------------------------------------------------
+// Debounced writer
+// ---------------------------------------------------------------------------
+
+let pending = null;
+let writeTimer = null;
+
+function scheduleWrite(usage) {
+  pending = usage;
+  if (writeTimer) return;  // already scheduled
+  writeTimer = setTimeout(() => {
+    writeTimer = null;
+    if (pending) saveUsage(pending);
+    pending = null;
+  }, WRITE_DEBOUNCE_MS);
+}
+
+// ---------------------------------------------------------------------------
+// Accumulate usage from a response body
+// ---------------------------------------------------------------------------
+
+function accumulate(date, body) {
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch (_) {
+    return;  // not JSON — ignore
+  }
+
+  const u = data && data.usage;
+  if (!u || typeof u.total_tokens !== 'number') return;
+
+  // Resolve cache-hit tokens from whichever field the API uses.
+  // DeepSeek may use prompt_cache_hit_tokens, or cached_tokens inside
+  // prompt_tokens_details, or may not report cache hits at all.
+  const details = u.prompt_tokens_details || {};
+  const cacheHit  = u.prompt_cache_hit_tokens
+    || details.cached_tokens
+    || details.cache_read_input_tokens
+    || 0;
+  const cacheMiss = u.prompt_cache_miss_tokens
+    || details.prompt_tokens  // non-cached portion
+    || 0;
+
+  // If the API doesn't report cache-miss separately, estimate it:
+  //   cache-miss = total prompt − cache-hit
+  const promptTotal = u.prompt_tokens || 0;
+  const effectiveCacheMiss = cacheMiss > 0
+    ? cacheMiss
+    : Math.max(0, promptTotal - cacheHit);
+
+  const usage = loadUsage(date);
+
+  usage.prompt_tokens            += promptTotal;
+  usage.completion_tokens        += u.completion_tokens || 0;
+  usage.prompt_cache_hit_tokens  += cacheHit;
+  usage.prompt_cache_miss_tokens += effectiveCacheMiss;
+  usage.total_tokens             += u.total_tokens      || 0;
+  usage.request_count            += 1;
+
+  scheduleWrite(usage);
+}
+
+// ---------------------------------------------------------------------------
+// Monkey-patch https.request
+// ---------------------------------------------------------------------------
+
+const _originalRequest = https.request;
+
+function patchedRequest(opts, ...args) {
+  // Normalize: opts can be a string URL or an options object
+  const hostname = (typeof opts === 'string')
+    ? (() => { try { return new URL(opts).hostname; } catch (_) { return ''; } })()
+    : (opts.hostname || opts.host || '');
+
+  const isDeepSeek = hostname === DEEPSEEK_HOST;
+
+  if (!isDeepSeek) {
+    // Not DeepSeek — pass through
+    return _originalRequest.call(https, opts, ...args);
+  }
+
+  // DeepSeek request — wrap the callback to capture the response body
+  const date = today();
+  let callback = null;
+
+  // args may contain [callback] or [options, callback]
+  // In Node's https.request signature: https.request(url|options, callback?)
+  // args[0] could be the callback if it's a function
+  if (args.length > 0 && typeof args[args.length - 1] === 'function') {
+    callback = args[args.length - 1];
+  }
+
+  const wrappedCallback = function (res) {
+    const chunks = [];
+
+    // Intercept data
+    res.on('data', chunk => { chunks.push(chunk); });
+
+    // When response completes, try to extract usage
+    res.on('end', () => {
+      try {
+        const body = Buffer.concat(chunks).toString('utf8');
+        accumulate(date, body);
+      } catch (_) { /* never throw from interceptor */ }
+    });
+
+    // Pass through to original callback
+    if (callback) {
+      // Re-emit data events by calling the original callback with the
+      // original response — but we've already consumed the data events.
+      // Need to re-create them.
+      //
+      // Strategy: pause the original response, patch it with a PassThrough
+      // that replays the chunks, and pass the patched stream to callback.
+
+      // Use a simple approach: re-emit via a cloned stream
+      const { PassThrough } = require('stream');
+      const pt = new PassThrough();
+
+      for (const chunk of chunks) {
+        pt.push(chunk);
+      }
+
+      // Forward any new data
+      res.on('data', chunk => { pt.push(chunk); });
+      res.on('end',  ()     => { pt.push(null); });
+      res.on('error', err   => { pt.destroy(err); });
+
+      // Copy status properties
+      pt.statusCode = res.statusCode;
+      pt.statusMessage = res.statusMessage;
+      pt.headers = res.headers;
+
+      callback(pt);
+    }
+  };
+
+  // Replace the callback in args
+  const newArgs = [...args];
+  if (callback) {
+    newArgs[newArgs.length - 1] = wrappedCallback;
+  } else {
+    newArgs.push(wrappedCallback);
+  }
+
+  return _originalRequest.call(https, opts, ...newArgs);
+}
+
+// Copy prototype
+patchedRequest.__proto__ = _originalRequest.__proto__;
+
+// Apply the patch
+https.request = patchedRequest;
+
+// ---------------------------------------------------------------------------
+// Guard: don't double-patch if --require is loaded multiple times
+// ---------------------------------------------------------------------------
+
+// Export for testing
+module.exports = { loadUsage, saveUsage, usagePath };

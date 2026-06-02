@@ -229,20 +229,21 @@ function renderModelStats(modelStats, activeModel, cacheRatio) {
 /**
  * Render the DeepSeek balance + daily model usage line.
  *
- * Format: `💎 ¥5.06(充) | 今日 v4-pro↑150K↓25K 缓存估98% v4-flash↑5K | 总↑180K↓30K | ✅`
+ * When `realUsage` is available (intercept.js loaded):
+ *   `💎 ¥5.06(充) | 今日 ↑11.4M↓79.5K缓存98% | ✅`
  *
- * The model stats are DAILY-CUMULATIVE totals (accumulated across all
- * sessions today).  The cache rate is estimated from the current context
- * snapshot ratio (Claude Code does not expose daily-cumulative cache data).
+ * When only `modelStats` from Claude Code is available:
+ *   `💎 ¥5.06(充) | 今日 v4-pro↑150K↓25K缓存估24% | 总↑150K↓25K | ✅`
  *
  * @param {object|null} balance     - balance API response, or null
  * @param {boolean}     [stale]     - whether the data came from stale cache
- * @param {object}      modelStats  - per-model token counters (daily cumulative)
+ * @param {object}      modelStats  - per-model token counters (Claude Code data)
  * @param {string}      activeModel - currently-active model ID
- * @param {number}      [cacheRatio] - estimated cache-hit ratio (0-1)
+ * @param {number}      [cacheRatio] - estimated cache-hit ratio (0-1) from context
+ * @param {object|null} [realUsage] - REAL daily usage from intercept.js, or null
  * @returns {string}
  */
-function renderLine3(balance, stale, modelStats, activeModel, cacheRatio) {
+function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUsage) {
   const out = [];
 
   // --- Balance section ---
@@ -265,23 +266,35 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio) {
     }
   }
 
-  // --- Model usage (daily cumulative token counts) ---
-  const stats = renderModelStats(modelStats, activeModel, cacheRatio);
-  if (stats) {
-    out.push(`${fmt.C.dim}今日${fmt.C.reset} ${stats}`);
-  }
+  if (realUsage) {
+    // --- REAL daily usage (from intercept.js) ---
+    const totalPrompt = realUsage.prompt_cache_hit_tokens + realUsage.prompt_cache_miss_tokens;
+    const pct = totalPrompt > 0
+      ? Math.round(realUsage.prompt_cache_hit_tokens / totalPrompt * 100) : 0;
 
-  // --- Daily total across all models ---
-  if (modelStats && Object.keys(modelStats).length > 0) {
-    let totalIn = 0, totalOut = 0;
-    for (const v of Object.values(modelStats)) {
-      totalIn  += v.input  || 0;
-      totalOut += v.output || 0;
-      // cache is included in input (cache-hit means input was free), so we
-      // don't add it separately — total real cost = input + output
+    out.push(
+      `${fmt.C.dim}今日${fmt.C.reset} ` +
+      `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}` +
+      `${fmt.C.dim}↓${fmt.formatTokens(realUsage.completion_tokens)}` +
+      `${fmt.C.green}缓存${pct}%${fmt.C.reset}`
+    );
+  } else {
+    // --- Estimated daily usage (Claude Code stdin, no cache data) ---
+    const stats = renderModelStats(modelStats, activeModel, cacheRatio);
+    if (stats) {
+      out.push(`${fmt.C.dim}今日${fmt.C.reset} ${stats}`);
     }
-    if (totalIn > 0 || totalOut > 0) {
-      out.push(`${fmt.C.dim}总↑${fmt.formatTokens(totalIn)}↓${fmt.formatTokens(totalOut)}${fmt.C.reset}`);
+
+    // Daily total from model stats
+    if (modelStats && Object.keys(modelStats).length > 0) {
+      let totalIn = 0, totalOut = 0;
+      for (const v of Object.values(modelStats)) {
+        totalIn  += v.input  || 0;
+        totalOut += v.output || 0;
+      }
+      if (totalIn > 0 || totalOut > 0) {
+        out.push(`${fmt.C.dim}总↑${fmt.formatTokens(totalIn)}↓${fmt.formatTokens(totalOut)}${fmt.C.reset}`);
+      }
     }
   }
 

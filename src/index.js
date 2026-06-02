@@ -14,6 +14,7 @@ const { renderLine1, renderLine2, renderLine3 } = require('./render');
 const { fetchBalance, readStaleCache } = require('./balance');
 const { loadState, saveState, updateBalance, updateTokens } = require('./session');
 const { C, estimateCost } = require('./format');
+const { readUsage } = require('./usage');
 
 // ---------------------------------------------------------------------------
 // stdin reader
@@ -123,12 +124,24 @@ async function main() {
   // 5. Persist state -------------------------------------------------------
   saveState(sessionId, state);
 
-  // 6. Render HUD ----------------------------------------------------------
+  // 6. Read real daily usage (from intercept.js, if available) --------------
+  const realUsage = readUsage();
+
+  // 7. Render HUD ----------------------------------------------------------
   const modelStats = state.models || {};
+
+  // Daily cache rate: prefer real data, fall back to context estimate
+  let dailyCacheRate = cacheRatio;
+  if (realUsage) {
+    const totalPrompt = realUsage.prompt_cache_hit_tokens + realUsage.prompt_cache_miss_tokens;
+    if (totalPrompt > 0) {
+      dailyCacheRate = realUsage.prompt_cache_hit_tokens / totalPrompt;
+    }
+  }
 
   console.log(renderLine1(data));
   console.log(renderLine2(data, sessionCost, data.cost?.total_cost_usd || 0, estimatedCost, sessionTokens));
-  console.log(renderLine3(balance, stale, modelStats, modelId, cacheRatio));
+  console.log(renderLine3(balance, stale, modelStats, modelId, dailyCacheRate, realUsage));
 }
 
 // ---------------------------------------------------------------------------

@@ -143,6 +143,44 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Step 5 — Configure real usage tracking (intercept.js)
+# ---------------------------------------------------------------------------
+echo ""
+info "Configuring real usage tracking..."
+
+# Determine shell RC file
+if [ -n "${ZSH_VERSION:-}" ] || [ -f "$HOME/.zshrc" ]; then
+  RC_FILE="$HOME/.zshrc"
+elif [ -f "$HOME/.bashrc" ]; then
+  RC_FILE="$HOME/.bashrc"
+elif [ -f "$HOME/.bash_profile" ]; then
+  RC_FILE="$HOME/.bash_profile"
+else
+  RC_FILE="$HOME/.bashrc"
+fi
+
+INTERCEPT_PATH="$INSTALL_DIR/src/intercept.js"
+ALIAS_LINE="alias claude='NODE_OPTIONS=\"--require ${INTERCEPT_PATH}\" claude'"
+
+# Only add if not already present
+if [ -f "$RC_FILE" ] && grep -q "deepseek-hud.*intercept" "$RC_FILE" 2>/dev/null; then
+  info "Usage interceptor alias already configured in ${RC_FILE}"
+else
+  {
+    echo ""
+    echo "# DeepSeek HUD — real usage tracking"
+    echo "# Injects intercept.js to capture actual DeepSeek API token counts"
+    echo "$ALIAS_LINE"
+  } >> "$RC_FILE"
+  success "Added intercept alias to ${RC_FILE}"
+  echo ""
+  echo -e "  ${YELLOW}⚠  Reload your shell to activate:${RESET}"
+  echo -e "     ${CYAN}source ${RC_FILE}${RESET}"
+  echo -e "  ${YELLOW}⚠  Use 'claude' (the alias) instead of the raw binary${RESET}"
+  echo -e "     to enable real usage tracking."
+fi
+
+# ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
 echo ""
@@ -160,4 +198,5 @@ echo -e "  To upgrade later, re-run this installer."
 echo -e "  To uninstall, run:"
 echo -e "    ${YELLOW}rm -rf ~/.claude/deepseek-hud${RESET}"
 echo -e "    Then remove 'statusLine' from ~/.claude/settings.json"
+echo -e "    And remove the 'claude' alias from ${RC_FILE}"
 echo ""

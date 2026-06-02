@@ -143,6 +143,50 @@ if ($testOutput) {
 }
 
 # ---------------------------------------------------------------------------
+# Step 5 — Configure real usage tracking (intercept.js)
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Info "Configuring real usage tracking..."
+
+$InterceptPath = "$InstallDir\src\intercept.js" -replace '\\', '/'
+$ProfileDir = Split-Path $PROFILE -Parent
+$ProfileFile = $PROFILE
+
+# Ensure profile directory exists
+if (-not (Test-Path $ProfileDir)) {
+    New-Item -ItemType Directory -Path $ProfileDir -Force | Out-Null
+}
+
+# Build the function to inject into PowerShell profile
+$funcBlock = @"
+
+# DeepSeek HUD — real usage tracking
+# Injects intercept.js to capture actual DeepSeek API token counts
+function claude {
+  `$env:NODE_OPTIONS = "--require $InterceptPath"
+  & claude.exe `$args
+}
+"@
+
+if (Test-Path $ProfileFile) {
+    $existing = Get-Content $ProfileFile -Raw -ErrorAction SilentlyContinue
+    if ($existing -match "deepseek-hud.*intercept") {
+        Write-Info "Usage interceptor already configured in profile"
+    } else {
+        Add-Content $ProfileFile "`n$funcBlock"
+        Write-Success "Added intercept function to PowerShell profile"
+    }
+} else {
+    Set-Content $ProfileFile $funcBlock
+    Write-Success "Created PowerShell profile with intercept function"
+}
+
+Write-Host ""
+Write-Host "  Reload your shell to activate:" -ForegroundColor Yellow
+Write-Host "    . `$PROFILE" -ForegroundColor Cyan
+Write-Host "  Use 'claude' (the function) to enable real usage tracking." -ForegroundColor Yellow
+
+# ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
 Write-Host ""
@@ -160,4 +204,5 @@ Write-Host "  To upgrade later, re-run this installer."
 Write-Host "  To uninstall, run:"
 Write-Host "    Remove-Item -Recurse -Force $InstallDir"
 Write-Host "    Then remove 'statusLine' from $SettingsFile"
+Write-Host "    Remove the claude function from your PowerShell profile"
 Write-Host ""

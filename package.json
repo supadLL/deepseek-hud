@@ -28,7 +28,10 @@
   "files": [
     "bin/",
     "src/",
-    "README.md"
+    "install.sh",
+    "install.ps1",
+    "README.md",
+    "README_zh.md"
   ],
   "engines": {
     "node": ">=14.0.0"
