@@ -228,6 +228,8 @@ curl -fsSL https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.s
 irm https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.ps1 | iex
 ```
 
+Or download a specific version from the [Releases](https://github.com/supadLL/deepseek-hud/releases) page and unzip to `~/.claude/deepseek-hud/`.
+
 The installer:
 1. Checks that Node.js and Git are available
 2. Clones the repo to `~/.claude/deepseek-hud/`
@@ -276,6 +278,17 @@ If you prefer to set it up manually, add the `statusLine` field to `~/.claude/se
 ```
 
 > **Windows users**: Use forward slashes in paths (e.g. `C:/Users/...`). Git Bash is recommended.
+
+### Creating a Release
+
+Push a version tag to trigger automatic packaging:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+GitHub Actions will build `deepseek-hud-v1.2.0.zip` and `deepseek-hud-v1.2.0.tar.gz` and attach them to a release with auto-generated release notes.
 
 ### Verify
 

@@ -227,6 +227,8 @@ curl -fsSL https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.s
 irm https://raw.githubusercontent.com/supadLL/deepseek-hud/main/install.ps1 | iex
 ```
 
+或从 [Releases](https://github.com/supadLL/deepseek-hud/releases) 页面下载指定版本，解压到 `~/.claude/deepseek-hud/`。
+
 安装脚本会自动完成：
 1. 检查 Node.js 和 Git 是否可用
 2. 克隆仓库到 `~/.claude/deepseek-hud/`
@@ -275,6 +277,17 @@ rm -rf ~/.claude/deepseek-hud
 ```
 
 > **Windows 用户**：路径中使用正斜杠（如 `C:/Users/...`），推荐使用 Git Bash。
+
+### 发布新版本
+
+推送版本标签即可触发自动打包：
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+GitHub Actions 会自动构建 `deepseek-hud-v1.2.0.zip` 和 `deepseek-hud-v1.2.0.tar.gz`，并附带自动生成的更新日志。
 
 ### 验证安装
 
