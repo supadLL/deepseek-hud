@@ -233,76 +233,36 @@ function patchedRequest(opts, ...args) {
 
   const isDeepSeek = hostname === DEEPSEEK_HOST;
 
-  if (!isDeepSeek) {
-    // Not DeepSeek — pass through
-    return _originalRequest.call(https, opts, ...args);
-  }
+  // Always call through to the original — we intercept via the response
+  // event on the returned ClientRequest.  This catches BOTH the callback
+  // pattern AND the req.on('response', ...) pattern that Claude Code uses
+  // for streaming SSE responses.
+  const req = _originalRequest.call(https, opts, ...args);
 
-  // DeepSeek request — wrap the callback to capture the response body
-  const date = today();
-  let callback = null;
+  if (isDeepSeek) {
+    const date = today();
 
-  // args may contain [callback] or [options, callback]
-  // In Node's https.request signature: https.request(url|options, callback?)
-  // args[0] could be the callback if it's a function
-  if (args.length > 0 && typeof args[args.length - 1] === 'function') {
-    callback = args[args.length - 1];
-  }
+    // Attach a response listener.  Node.js supports multiple listeners
+    // for the same event — Claude Code's listener(s) AND ours all fire.
+    // Each listener receives the SAME IncomingMessage, and each can
+    // independently attach data/end listeners to collect chunks.
+    req.on('response', function (res) {
+      const chunks = [];
 
-  const wrappedCallback = function (res) {
-    const chunks = [];
+      res.on('data', function (chunk) {
+        chunks.push(chunk);
+      });
 
-    // Intercept data
-    res.on('data', chunk => { chunks.push(chunk); });
-
-    // When response completes, try to extract usage
-    res.on('end', () => {
-      try {
-        const body = Buffer.concat(chunks).toString('utf8');
-        accumulate(date, body);
-      } catch (_) { /* never throw from interceptor */ }
+      res.on('end', function () {
+        try {
+          const body = Buffer.concat(chunks).toString('utf8');
+          accumulate(date, body);
+        } catch (_) { /* never throw from interceptor */ }
+      });
     });
-
-    // Pass through to original callback
-    if (callback) {
-      // Re-emit data events by calling the original callback with the
-      // original response — but we've already consumed the data events.
-      // Need to re-create them.
-      //
-      // Strategy: pause the original response, patch it with a PassThrough
-      // that replays the chunks, and pass the patched stream to callback.
-
-      // Use a simple approach: re-emit via a cloned stream
-      const { PassThrough } = require('stream');
-      const pt = new PassThrough();
-
-      for (const chunk of chunks) {
-        pt.push(chunk);
-      }
-
-      // Forward any new data
-      res.on('data', chunk => { pt.push(chunk); });
-      res.on('end',  ()     => { pt.push(null); });
-      res.on('error', err   => { pt.destroy(err); });
-
-      // Copy status properties
-      pt.statusCode = res.statusCode;
-      pt.statusMessage = res.statusMessage;
-      pt.headers = res.headers;
-
-      callback(pt);
-    }
-  };
-
-  // Replace the callback in args
-  const newArgs = [...args];
-  if (callback) {
-    newArgs[newArgs.length - 1] = wrappedCallback;
-  } else {
-    newArgs.push(wrappedCallback);
   }
 
-  return _originalRequest.call(https, opts, ...newArgs);
+  return req;
 }
 
 // Copy prototype
