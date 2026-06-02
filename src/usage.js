@@ -175,21 +175,36 @@ function resolveToken() {
   return '';
 }
 
+/** tokenConfigured
+ * Check whether a platform token is configured (env var or file).
+ * Used by the renderer to decide whether to show a "token expired" hint.
+ *
+ * @returns {boolean}
+ */
+function tokenConfigured() {
+  return resolveToken() !== '';
+}
+
 /**
  * Fetch real daily usage.
  *
  * Tries the platform API first (Bearer token from env var or token file),
  * falls back to the intercept.js daily file.  Results are cached for 60 s.
  *
+ * When a token IS configured but the API call fails (likely expired),
+ * the returned object includes `tokenExpired: true` so the renderer can
+ * show a warning.
+ *
  * @returns {Promise<object|null>}
  *   { date, prompt_tokens, completion_tokens, prompt_cache_hit_tokens,
- *     prompt_cache_miss_tokens, total_tokens, source }
- *   or null if no data source is available
+ *     prompt_cache_miss_tokens, total_tokens, source, [tokenExpired] }
+ *   or null if no data source is available and no token is configured
  */
 async function fetchUsage() {
   const token = resolveToken();
+  const hasToken = token !== '';
 
-  if (token) {
+  if (hasToken) {
     const now = Date.now();
     if (_cache && (now - _cacheTime) < CACHE_TTL) {
       return _cache;
@@ -201,6 +216,11 @@ async function fetchUsage() {
       _cacheTime = now;
       return result;
     }
+
+    // Token exists but API call failed — likely expired.
+    // Return a marker so the renderer can show a warning.
+    _cacheTime = now;  // don't hammer the API
+    return { tokenExpired: true, source: 'platform' };
   }
 
   // Fallback: read intercept.js daily file (synchronous, no token needed)
@@ -228,4 +248,4 @@ function readInterceptFile(date) {
   }
 }
 
-module.exports = { fetchUsage, today };
+module.exports = { fetchUsage, tokenConfigured, today };

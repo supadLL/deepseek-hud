@@ -273,38 +273,41 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
   }
 
   if (realUsage) {
-    // --- REAL daily usage (from intercept.js) ---
-    // DeepSeek reports cache-hit / cache-miss separately; Claude Code
-    // stdin's total_input_tokens omits cache hits entirely.
-    // We show the full picture: total input = cache-hit + cache-miss,
-    // with the cache-hit portion displayed inline so the breakdown is
-    // immediately obvious — no confusion with Line 2's ⟳ (which is a
-    // point-in-time context snapshot, not a daily cumulative).
-    const totalPrompt = realUsage.prompt_cache_hit_tokens + realUsage.prompt_cache_miss_tokens;
-    const cacheHit  = realUsage.prompt_cache_hit_tokens || 0;
-    const cacheMiss = realUsage.prompt_cache_miss_tokens || 0;
-    const pct = totalPrompt > 0
-      ? Math.round(cacheHit / totalPrompt * 100) : 0;
-    const pctStr = totalPrompt > 0 ? `${pct}%` : '--';
+    // --- Token expired warning ---
+    // When a platform token IS configured but the API call failed,
+    // the token has likely expired.  Show a prominent hint so the
+    // user knows to run setup-token.ps1 / setup-token.sh.
+    if (realUsage.tokenExpired) {
+      out.push(
+        `${fmt.C.yellow}⚠️ 登录过期${fmt.C.reset} ` +
+        `${fmt.C.dim}运行 setup-token 刷新${fmt.C.reset}`
+      );
+    } else if (realUsage.prompt_tokens > 0 || realUsage.completion_tokens > 0) {
+      // --- REAL daily usage (from platform API or intercept.js) ---
+      const totalPrompt = realUsage.prompt_cache_hit_tokens + realUsage.prompt_cache_miss_tokens;
+      const cacheHit  = realUsage.prompt_cache_hit_tokens || 0;
+      const cacheMiss = realUsage.prompt_cache_miss_tokens || 0;
+      const pct = totalPrompt > 0
+        ? Math.round(cacheHit / totalPrompt * 100) : 0;
+      const pctStr = totalPrompt > 0 ? `${pct}%` : '--';
 
-    // Show cache-hit as a dim parenthetical so the user sees where the
-    // big number comes from (98%+ cache rate → most input is cached).
-    // Only show the breakdown when there ARE cache hits; otherwise just
-    // the plain total looks cleaner.
-    let inputPart;
-    if (cacheHit > 0) {
-      inputPart =
-        `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}` +
-        `${fmt.C.dim}(⟳${fmt.formatTokens(cacheHit)}命中${pctStr})${fmt.C.reset}`;
-    } else {
-      inputPart = `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}${fmt.C.reset}`;
+      // Show cache-hit as a dim parenthetical so the user sees where the
+      // big number comes from (98%+ cache rate → most input is cached).
+      let inputPart;
+      if (cacheHit > 0) {
+        inputPart =
+          `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}` +
+          `${fmt.C.dim}(⟳${fmt.formatTokens(cacheHit)}命中${pctStr})${fmt.C.reset}`;
+      } else {
+        inputPart = `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}${fmt.C.reset}`;
+      }
+
+      out.push(
+        `${fmt.C.dim}今日${fmt.C.reset} ` +
+        inputPart +
+        `${fmt.C.dim}↓${fmt.formatTokens(realUsage.completion_tokens)}${fmt.C.reset}`
+      );
     }
-
-    out.push(
-      `${fmt.C.dim}今日${fmt.C.reset} ` +
-      inputPart +
-      `${fmt.C.dim}↓${fmt.formatTokens(realUsage.completion_tokens)}${fmt.C.reset}`
-    );
   } else {
     // --- Estimated daily usage (Claude Code stdin, no cache data) ---
     const stats = renderModelStats(modelStats, activeModel, cacheRatio);
