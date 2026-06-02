@@ -98,12 +98,23 @@ async function main() {
     const result = updateTokens(state, modelId, data.context_window);
     if (result) {
       sessionTokens = result.sessionTokens;
-      // Token-based session cost estimate (complement to balance-delta)
+
+      // Estimate how many of the session input tokens were cache hits.
+      // We use the CURRENT context's cache ratio (cache / total-context-input)
+      // as a proxy for the session-wide ratio, because cache_read_input_tokens
+      // is a point-in-time snapshot, not a daily-cumulative field.
+      const usage = data.context_window.current_usage || {};
+      const ctxInput = usage.input_tokens || 0;
+      const ctxCache = usage.cache_read_input_tokens || 0;
+      const ctxTotal  = ctxInput + ctxCache;
+      const cacheRatio = ctxTotal > 0 ? ctxCache / ctxTotal : 0;
+      const estimatedCache = Math.round(sessionTokens.input * cacheRatio);
+
       estimatedCost = estimateCost(
         modelId,
         sessionTokens.input,
         sessionTokens.output,
-        sessionTokens.cache,
+        estimatedCache,
       );
     }
   }

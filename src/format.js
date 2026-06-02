@@ -120,17 +120,25 @@ const PRICING = {
 /**
  * Estimate session cost in CNY from token counts and model pricing.
  *
+ * `totalInput` includes BOTH cached and non-cached input tokens.
+ * We split them using `cacheTokens` (estimated from current cache ratio)
+ * so each portion is priced at the correct rate.
+ *
+ * Cache-hit input is ~90% cheaper than regular input, but NOT free.
+ *
  * @param {string} modelId     - e.g. "deepseek-v4-pro"
- * @param {number} inputTokens
+ * @param {number} totalInput  - total session input tokens (cached + non-cached)
  * @param {number} outputTokens
- * @param {number} cacheTokens
+ * @param {number} cacheTokens - estimated cache-hit tokens (subset of totalInput)
  * @returns {number} estimated RMB
  */
-function estimateCost(modelId, inputTokens, outputTokens, cacheTokens) {
+function estimateCost(modelId, totalInput, outputTokens, cacheTokens) {
   const price = PRICING[modelId] || PRICING._default;
-  const inputCost  = (inputTokens  / 1_000_000) * price.input;
+  const cached     = Math.min(cacheTokens || 0, totalInput);
+  const nonCached  = totalInput - cached;
+  const inputCost  = (nonCached   / 1_000_000) * price.input;
   const outputCost = (outputTokens / 1_000_000) * price.output;
-  const cacheCost  = (cacheTokens  / 1_000_000) * price.cache;
+  const cacheCost  = (cached       / 1_000_000) * price.cache;
   return inputCost + outputCost + cacheCost;
 }
 
