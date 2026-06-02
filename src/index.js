@@ -12,7 +12,7 @@
 
 const { renderLine1, renderLine2, renderLine3 } = require('./render');
 const { fetchBalance, readStaleCache } = require('./balance');
-const { loadState, saveState, updateBalance, updateTokens } = require('./session');
+const { loadState, saveState, updateBalance, updateTokens, checkCompaction } = require('./session');
 const { C, estimateCost } = require('./format');
 const { readUsage } = require('./usage');
 
@@ -121,13 +121,17 @@ async function main() {
     }
   }
 
-  // 5. Persist state -------------------------------------------------------
+  // 5. Detect context-window compaction (must happen before saveState) ------
+  const ctxPct = Math.round((data.context_window && data.context_window.used_percentage) || 0);
+  const compacted = ctxPct > 0 ? checkCompaction(state, ctxPct) : false;
+
+  // 6. Persist state (after checkCompaction so lastCtxPct is saved) --------
   saveState(sessionId, state);
 
-  // 6. Read real daily usage (from intercept.js, if available) --------------
+  // 7. Read real daily usage (from intercept.js, if available) --------------
   const realUsage = readUsage();
 
-  // 7. Render HUD ----------------------------------------------------------
+  // 8. Render HUD ----------------------------------------------------------
   const modelStats = state.models || {};
 
   // Daily cache rate: prefer real data, fall back to context estimate
@@ -139,7 +143,7 @@ async function main() {
     }
   }
 
-  console.log(renderLine1(data));
+  console.log(renderLine1(data, compacted));
   console.log(renderLine2(data, sessionCost, data.cost?.total_cost_usd || 0, estimatedCost, sessionTokens));
   console.log(renderLine3(balance, stale, modelStats, modelId, dailyCacheRate, realUsage));
 }

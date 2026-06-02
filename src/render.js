@@ -56,12 +56,13 @@ function gitBranch() {
 /**
  * Render the identity line.
  *
- * Format: `[model] 📁 dir | 🌿 branch | 🔥 effort | ⏱️ duration`
+ * Format: `[model] 📁 dir | 🌿 branch | 🔥 effort | 🗜️ | ⏱️ duration`
  *
- * @param {object} data - Claude Code session JSON
+ * @param {object} data     - Claude Code session JSON
+ * @param {boolean} [compacted] - true if context was just compacted
  * @returns {string}
  */
-function renderLine1(data) {
+function renderLine1(data, compacted) {
   const model    = data.model?.id || data.model?.display_name || '...';
   const dir      = path.basename(data.workspace?.current_dir || data.cwd || '');
   const duration = fmt.formatDuration(data.cost?.total_duration_ms || 0);
@@ -74,6 +75,11 @@ function renderLine1(data) {
 
   if (effort) {
     line += ` | ${fmt.effortIcon(effort)} ${effort}`;
+  }
+
+  // Compaction indicator (flashes once after a detected compaction)
+  if (compacted) {
+    line += ` | ${fmt.C.green}🗜️${fmt.C.reset}`;
   }
 
   line += ` | ⏱️ ${duration}`;

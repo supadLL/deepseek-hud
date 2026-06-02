@@ -36,6 +36,8 @@ function freshState() {
     lastInputTokens: 0,         // previous context input tokens (for delta calc)
     lastOutputTokens: 0,        // previous context output tokens
     lastCacheTokens: 0,         // previous context cache tokens
+    lastCtxPct: 0,              // previous context used_percentage (for compaction detection)
+    compactionCount: 0,         // number of compactions in this session
   };
 }
 
@@ -188,6 +190,31 @@ function updateTokens(state, modelId, context) {
   };
 }
 
+/**
+ * Detect context-window compaction.
+ *
+ * Compaction is inferred when `used_percentage` drops sharply between
+ * invocations (e.g. 95% → 30%).  Returns `true` on the invocation where
+ * the drop is detected, `false` otherwise.
+ *
+ * @param {object} state     - session state (mutated in place)
+ * @param {number} currPct   - current context_window.used_percentage
+ * @returns {boolean} true if a compaction just happened
+ */
+function checkCompaction(state, currPct) {
+  const prev = state.lastCtxPct;
+
+  // Update the stored value for next time
+  state.lastCtxPct = currPct;
+
+  // Detect: previous was high (> 70%) and dropped significantly (> 30 pts)
+  if (prev > 70 && (prev - currPct) > 30) {
+    state.compactionCount += 1;
+    return true;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 
-module.exports = { loadState, saveState, updateBalance, updateTokens, freshState };
+module.exports = { loadState, saveState, updateBalance, updateTokens, checkCompaction, freshState };
