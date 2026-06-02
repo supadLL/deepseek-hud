@@ -23,7 +23,7 @@ Three lines rendered at the bottom of your terminal:
 
 ```
 [deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 15m 0s
-███████░░░ 72% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K | 💰 ¥0.50(估¥0.025) $0.035 200K
+███████░░░ 72% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.025) $0.035 200K
 💎 ¥110.00(充) | 今日 v4-pro↑150K↓25K v4-flash↑5K | 总↑180K↓30K | ✅
 ```
 

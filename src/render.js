@@ -88,15 +88,14 @@ function renderLine1(data) {
 /**
  * Render the resources line.
  *
- * Format: `████░░░░░░ 42% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K | 💰 ¥0.30(估¥0.025) $0.01 200K`
+ * Format: `████░░░░░░ 42% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K(24%) | 💰 ¥0.30(估¥0.025) $0.01 200K`
  *
  * Token breakdown shows SESSION-LEVEL cumulative tokens (daily delta from
- * session start).  Cache tokens (⟳) are from current_usage — a point-in-time
- * context snapshot, not a cumulative value.
- *
- * The daily cache-hit RATE lives on Line 3 (per-model stats), because the
- * rate is computed from daily-cumulative model counters, not from the
- * context snapshot.
+ * session start).  Cache tokens (⟳) and hit rate (24%) are from
+ * current_usage — a point-in-time context snapshot.  The rate tells you
+ * what share of the CURRENT context's input was served from cache;
+ * it does NOT represent the daily cumulative cache rate (which requires
+ * DeepSeek backend data).
  *
  * @param {object} data          - Claude Code session JSON
  * @param {number} sessionCost   - actual RMB cost from balance delta (account-wide)
@@ -121,12 +120,20 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   // cumulative field — it only reflects the current context window.
   const usage = ctx.current_usage || {};
   const cache = usage.cache_read_input_tokens || 0;
+  const ctxInput = usage.input_tokens || 0;
 
   if (input > 0 || output > 0 || cache > 0) {
     line += ` | ${fmt.C.dim}本会话${fmt.C.reset} ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
     line += ` ${fmt.C.dim}↓${fmt.formatTokens(output)}${fmt.C.reset}`;
     if (cache > 0) {
-      line += ` ${fmt.C.green}⟳${fmt.formatTokens(cache)}${fmt.C.reset}`;
+      // Context-level cache-hit rate: what share of the CURRENT context's
+      // input was served from cache?  This is a point-in-time snapshot —
+      // it does NOT represent the daily cumulative cache rate.
+      const denom = ctxInput + cache;
+      const rate  = denom > 0 ? Math.round(cache / denom * 100) : 0;
+      line += ` ${fmt.C.green}⟳${fmt.formatTokens(cache)}${fmt.C.dim}(${rate}%)${fmt.C.reset}`;
+    } else if (ctxInput > 0) {
+      line += ` ${fmt.C.dim}⟳0(0%)${fmt.C.reset}`;
     }
   } else {
     line += ` | ${fmt.C.dim}本会话 —${fmt.C.reset}`;
