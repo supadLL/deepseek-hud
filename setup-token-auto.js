@@ -12,11 +12,29 @@
 
 'use strict';
 
-const { chromium } = require('playwright');
 const { execSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+
+// ---------------------------------------------------------------------------
+// Resolve playwright from global install if not on default NODE_PATH
+// ---------------------------------------------------------------------------
+let chromium;
+try {
+  ({ chromium } = require('playwright'));
+} catch (_) {
+  // Try global npm prefix
+  try {
+    const prefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+    const globalPath = path.join(prefix, 'node_modules');
+    ({ chromium } = require(require.resolve('playwright', { paths: [globalPath] })));
+  } catch (_2) {
+    console.error('Playwright not found. Install it first:');
+    console.error('  npm install -g playwright');
+    process.exit(1);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Browser detection — ordered by preference
