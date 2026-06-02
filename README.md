@@ -23,7 +23,7 @@ Three lines rendered at the bottom of your terminal:
 
 ```
 [deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 15m 0s
-███████░░░ 72% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.025) $0.035 200K
+████░░░░░░ 42% ctx | 本会话 ↑14.0K ↓2.8K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.025) $0.035 1.0M
 💎 ¥110.00(充) | 今日 ↑44.3M(⟳43.2M命中97%)↓226.8K | ✅
 ```
 
@@ -32,7 +32,7 @@ Three lines rendered at the bottom of your terminal:
 | Line | Content | Description |
 |---|---|---|
 | 1 | **Session Identity** | Model name, project directory, Git branch, effort level, compaction icon, duration |
-| 2 | **Session Resources** | Context window bar (green/yellow/red), session-level tokens (↑in ↓out), cache hit snapshot (⟳X(X%)), cost (balance-delta RMB + token estimate + USD), max context size |
+| 2 | **Session Resources** | Context window bar (green/yellow/red), session-level tokens (↑in ↓out), cache hit snapshot (⟳X(X%)), cost (balance-delta RMB + token estimate + USD), model-aware max context size (1.0M for v4, else reported value) |
 | 3 | **Balance & Daily Totals** | DeepSeek account balance, real daily usage from platform API: total input with cache breakdown (⟳cacheHits hitRate%), daily output, availability badge |
 
 ## Features
