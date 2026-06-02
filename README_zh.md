@@ -113,50 +113,79 @@ Claude Code 传入的 `total_input_tokens` / `total_output_tokens` 是 **今日 
 
 ### 平台 Token 配置（真实每日用量必配）
 
-Line 3 展示**真实**每日 token 用量，需要从浏览器提取一个 Bearer Token。
+Line 3 展示**真实**每日 token 用量，需要从浏览器提取 Bearer Token。有两种方式：
 
-**快速配置**（推荐）：
+####  自动模式（Windows / macOS / Linux — 无需手动操作）
+
+安装 Playwright 后（`npm install -g playwright`），脚本可**全自动**完成提取：
 
 ```bash
-# macOS / Linux / Git Bash
+# 所有平台
 bash ~/.claude/deepseek-hud/setup-token.sh
+
+# Windows PowerShell（加 -Force 跳过确认）
+powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Force
 ```
 
-```powershell
-# Windows PowerShell（自动模式 — 一键完成！）
-powershell -File ~/.claude/deepseek-hud/setup-token.ps1
+**自动化流程：**
 
-# 手动模式（如果没有安装 Playwright）
+1. 检测你的浏览器（Chrome / Edge / Brave / Chromium）
+2. 关闭所有浏览器窗口（需要访问你的登录 Profile）
+3. 用你的 Profile 重新启动浏览器（保留已登录状态）
+4. 打开 `platform.deepseek.com/usage`，等待用量 API 请求
+5. 自动捕获请求头中的 Bearer Token
+6. 保存 Token 并关闭浏览器
+
+**运行时的实际表现：**
+
+| 步骤 | 现象 |
+|---|---|
+| 浏览器窗口关闭 | 所有 Chrome/Edge/Brave 窗口消失 — **请先保存工作** |
+| 浏览器短暂打开 | 一个新窗口出现，自动跳转 DeepSeek，然后关闭 |
+| 终端输出 | 显示进度：检测浏览器 → 启动 → 等待 API → 完成 |
+
+> **⚠️ 注意：** 自动模式会**关闭你所有浏览器窗口**。未保存的内容（表单、草稿）会丢失。脚本会先提示确认，用 `-Force` 可跳过提示（如果你已做好准备）。
+
+**常见问题及解决：**
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| 提示 `Profile locked` | 浏览器仍在运行 | 手动关闭所有浏览器窗口后重试 |
+| 提示 `Playwright not found` | 未安装 Playwright | `npm install -g playwright` |
+| 提示 `No supported browser found` | 未装 Chrome/Edge/Brave/Chromium | 安装任一浏览器，或使用手动模式 |
+| Token 拿到了但 Line 3 还是估算 | 浏览器中未登录 DeepSeek | 先在浏览器登录 `platform.deepseek.com`，再重试 |
+| 用了一段时间后显示 `⚠️ 登录过期` | Token 过期（正常的，几周后） | 重新运行 setup 脚本 |
+
+####  手动模式（无需安装依赖，全平台通用）
+
+没有 Playwright，或自动模式失败时，用手动提取：
+
+```bash
+# macOS / Linux
+bash ~/.claude/deepseek-hud/setup-token.sh
+# （缺少 Playwright 时自动回退到手动模式）
+
+# Windows PowerShell
 powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 ```
 
-Windows + Playwright（`npm install -g playwright`）时，脚本**自动检测浏览器**（Chrome / Edge / Brave / Chromium），暂时关闭浏览器，用你已保存的登录状态提取 Token——无需 F12、无需复制粘贴。其他平台或无 Playwright 时，引导通过 DevTools 手动提取。
-
-**手动配置**：
+**操作步骤：**
 
 1. 浏览器打开 https://platform.deepseek.com/usage 并登录
 2. 按 F12 → **Network**（网络）标签
-3. 点击页面上的 **每月用量**，切换一下月份或直接刷新页面（触发 API 请求）
+3. 点击页面 **每月用量**，切换一下月份或直接刷新页面（触发 API 请求）
 4. 在 Network 列表中找到 `/api/v0/usage/amount?month=...` 请求并点击
 5. 右侧 **Request Headers**（请求标头）往下翻，找到 `Authorization: Bearer ...`
-6. 复制 `Bearer ` **后面**的那一串值（不含 "Bearer " 前缀）
-7. 保存到 `~/.claude/deepseek-hud/.platform_token`：
+6. 复制 `Bearer ` **后面**的值（不含 "Bearer " 前缀）
+7. 粘贴到脚本提示中
 
-```bash
-echo -n "你的token值" > ~/.claude/deepseek-hud/.platform_token
-```
+####  Token 存储
 
-或设置为环境变量：
-
-```bash
-export DEEPSEEK_PLATFORM_TOKEN="你的token值"
-```
-
-Token 读取优先级：
+读取优先级：
 1. `DEEPSEEK_PLATFORM_TOKEN` 环境变量
 2. `~/.claude/deepseek-hud/.platform_token` 文件
 
-> ⚠️ 平台 Token 有效期几天到几周，过期后 Line 3 会退化为估算数据。重新运行 setup 脚本即可更新。
+> ⚠️ 平台 Token 有效期**几天到几周**。过期时 Line 3 会显示 `⚠️ 登录过期 运行 setup-token 刷新`，重新运行 setup 脚本即可。
 
 ## 安装配置
 

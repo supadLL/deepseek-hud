@@ -112,50 +112,79 @@ Claude Code sends **daily-cumulative** `total_input_tokens` / `total_output_toke
 
 ### Platform Token Setup (Required for Real Daily Usage)
 
-Line 3 shows **real** daily token usage from the DeepSeek platform API. This requires a Bearer token from your browser session.
+Line 3 shows **real** daily token usage from the DeepSeek platform API. This requires a Bearer token from your browser session. There are two ways to get it:
 
-**Quick setup** (recommended):
+####  Auto Mode (Windows / macOS / Linux — zero clicks)
+
+If Playwright is installed (`npm install -g playwright`), the setup script can **fully automate** the extraction:
 
 ```bash
-# macOS / Linux / Git Bash
+# All platforms
 bash ~/.claude/deepseek-hud/setup-token.sh
+
+# Windows PowerShell (add -Force to skip confirmation)
+powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Force
 ```
 
-```powershell
-# Windows PowerShell (auto mode — zero clicks!)
-powershell -File ~/.claude/deepseek-hud/setup-token.ps1
+**How it works — step by step:**
 
-# Or manual mode if Playwright is not installed
+1. Detects your browser (Chrome / Edge / Brave / Chromium)
+2. Closes all browser windows (needs access to your login profile)
+3. Launches the browser with your existing profile (your saved login is preserved)
+4. Opens `platform.deepseek.com/usage` and waits for the usage API request
+5. Captures the Bearer token from the `Authorization` header
+6. Saves it and closes the browser
+
+**What you'll experience:**
+
+| Step | What happens |
+|---|---|
+| Browser windows close | All Chrome/Edge/Brave windows disappear — **save your work first** |
+| Browser opens briefly | A new browser window appears, navigates to DeepSeek, then closes |
+| Terminal output | Shows progress: detecting browser → launching → waiting for API → done |
+
+> **⚠️ Important:** The auto mode will **close all your browser windows**. Any unsaved work (form inputs, drafts) will be lost. The script warns you before doing this — use `-Force` to skip the warning if you're prepared.
+
+**What can go wrong:**
+
+| Problem | Cause | Solution |
+|---|---|---|
+| `Profile locked` error | Browser is still running | Close all browser windows manually, then re-run |
+| `Playwright not found` | Playwright not installed | `npm install -g playwright` |
+| `No supported browser found` | Chrome/Edge/Brave/Chromium not installed | Install one, or use manual mode |
+| Token captured but Line 3 shows estimates | Not logged into DeepSeek in that browser | Log into `platform.deepseek.com` in your browser first, then re-run |
+| Token works for a while then shows `⚠️ 登录过期` | Token expired (normal, weeks later) | Re-run the setup script |
+
+####  Manual Mode (no dependencies, all platforms)
+
+If you don't have Playwright, or auto mode fails, use manual extraction:
+
+```bash
+# macOS / Linux
+bash ~/.claude/deepseek-hud/setup-token.sh
+# (automatically falls back to manual if Playwright is missing)
+
+# Windows PowerShell
 powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 ```
 
-On Windows with Playwright (`npm install -g playwright`), the script **automatically** detects your browser (Chrome, Edge, Brave, or Chromium), closes it temporarily, extracts the token using your saved login session, and saves it — no DevTools, no copy-paste. On other platforms or without Playwright, it guides you through manual DevTools extraction.
+**Steps:**
 
-**Manual setup**:
+1. Open https://platform.deepseek.com/usage in your browser and log in
+2. Press F12 → **Network** tab
+3. Click **Monthly Usage** tab on the page, then switch months or refresh (triggers the API request)
+4. Find `/api/v0/usage/amount?month=...` in the Network list, click it
+5. On the right, under **Request Headers**, scroll to `Authorization: Bearer ...`
+6. Copy the value **after** `Bearer ` (do not include the "Bearer " prefix)
+7. Paste it when the script prompts you
 
-1. 浏览器打开 https://platform.deepseek.com/usage 并登录
-2. 按 F12 → **Network**（网络）标签
-3. 点击页面上的 **每月用量**，切换一下月份或直接刷新页面（触发 API 请求）
-4. 在 Network 列表中找到 `/api/v0/usage/amount?month=...` 请求并点击
-5. 右侧 **Request Headers**（请求标头）往下翻，找到 `Authorization: Bearer ...`
-6. 复制 `Bearer ` **后面**的那一串值（不含 "Bearer " 前缀）
-7. 保存到 `~/.claude/deepseek-hud/.platform_token`：
-
-```bash
-echo -n "你的token值" > ~/.claude/deepseek-hud/.platform_token
-```
-
-Or set it as an environment variable:
-
-```bash
-export DEEPSEEK_PLATFORM_TOKEN="你的token值"
-```
+####  Token Storage
 
 The token is read from (in priority order):
 1. `DEEPSEEK_PLATFORM_TOKEN` environment variable
 2. `~/.claude/deepseek-hud/.platform_token` file
 
-> ⚠️ The platform token expires after days/weeks. When Line 3 stops showing real data, run the setup script again.
+> ⚠️ The platform token expires after **days to weeks**. When it does, Line 3 will show `⚠️ 登录过期 运行 setup-token 刷新` — just re-run the setup script.
 
 ## Setup
 
