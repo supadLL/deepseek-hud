@@ -129,7 +129,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   const ctxInput = usage.input_tokens || 0;
 
   if (input > 0 || output > 0 || cache > 0) {
-    line += ` | ${fmt.C.dim}本会话${fmt.C.reset} ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
+    line += ` | ${fmt.C.dim}${fmt.t('sessionLabel')}${fmt.C.reset} ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
     line += ` ${fmt.C.dim}↓${fmt.formatTokens(output)}${fmt.C.reset}`;
     if (cache > 0) {
       // Context-level cache-hit rate: what share of the CURRENT context's
@@ -142,7 +142,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
       line += ` ${fmt.C.dim}⟳0(0%)${fmt.C.reset}`;
     }
   } else {
-    line += ` | ${fmt.C.dim}本会话 —${fmt.C.reset}`;
+    line += ` | ${fmt.C.dim}${fmt.t('sessionLabel')} —${fmt.C.reset}`;
   }
 
   // Cost: balance-delta RMB (real) + token estimate + USD reference
@@ -154,7 +154,7 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
     line += ` | ${fmt.C.yellow}💰`;
     line += ` ¥${cny.toFixed(4)}`;
     if (est > 0) {
-      line += `${fmt.C.dim}(估¥${est.toFixed(4)})${fmt.C.reset}`;
+      line += `${fmt.C.dim}${fmt.t('estimatedLabel')}¥${est.toFixed(4)}${fmt.C.reset}`;
     }
     line += ` ${fmt.C.dim}$${usd.toFixed(4)}${fmt.C.reset}`;
   } else {
@@ -221,7 +221,7 @@ function renderModelStats(modelStats, activeModel, cacheRatio) {
       // Estimated daily cache rate (from current context snapshot)
       if (cacheRatio > 0 && isActive) {
         const pct = Math.round(cacheRatio * 100);
-        items.push(`${fmt.C.dim}缓存估${pct}%${fmt.C.reset}`);
+        items.push(`${fmt.C.dim}${fmt.t('cacheEstLabel')}${pct}%${fmt.C.reset}`);
       }
       return `${color}${short}${items.join('')}${fmt.C.reset}`;
     }
@@ -254,7 +254,7 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
 
   // --- Balance section ---
   if (!balance || !balance.balance_infos || balance.balance_infos.length === 0) {
-    out.push(`${fmt.C.dim}💎 暂无数据${fmt.C.reset}`);
+    out.push(`${fmt.C.dim}💎 ${fmt.t('noDataLabel')}${fmt.C.reset}`);
   } else {
     for (const info of balance.balance_infos) {
       const sym = fmt.currencySymbol(info.currency);
@@ -263,10 +263,10 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
 
       let text = `💎 ${sym}${info.total_balance}`;
       if (topped > 0) {
-        text += `${fmt.C.dim}(充)${fmt.C.reset}`;
+        text += `${fmt.C.dim}${fmt.t('topUpLabel')}${fmt.C.reset}`;
       }
       if (granted > 0) {
-        text += `${fmt.C.dim}(赠)${fmt.C.reset}`;
+        text += `${fmt.C.dim}${fmt.t('grantLabel')}${fmt.C.reset}`;
       }
       out.push(text);
     }
@@ -279,8 +279,8 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
     // user knows to run setup-token.ps1 / setup-token.sh.
     if (realUsage.tokenExpired) {
       out.push(
-        `${fmt.C.yellow}⚠️ 登录过期${fmt.C.reset} ` +
-        `${fmt.C.dim}运行 setup-token 刷新${fmt.C.reset}`
+        `${fmt.C.yellow}${fmt.t('tokenExpired')}${fmt.C.reset} ` +
+        `${fmt.C.dim}${fmt.t('tokenHint')}${fmt.C.reset}`
       );
     } else if (realUsage.prompt_tokens > 0 || realUsage.completion_tokens > 0) {
       // --- REAL daily usage (from platform API or intercept.js) ---
@@ -297,13 +297,13 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
       if (cacheHit > 0) {
         inputPart =
           `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}` +
-          `${fmt.C.dim}(⟳${fmt.formatTokens(cacheHit)}命中${pctStr})${fmt.C.reset}`;
+          `${fmt.C.dim}(⟳${fmt.formatTokens(cacheHit)}${fmt.t('cacheHitLabel')}${pctStr})${fmt.C.reset}`;
       } else {
         inputPart = `${fmt.C.white}↑${fmt.formatTokens(totalPrompt)}${fmt.C.reset}`;
       }
 
       out.push(
-        `${fmt.C.dim}今日${fmt.C.reset} ` +
+        `${fmt.C.dim}${fmt.t('todayLabel')}${fmt.C.reset} ` +
         inputPart +
         `${fmt.C.dim}↓${fmt.formatTokens(realUsage.completion_tokens)}${fmt.C.reset}`
       );
@@ -312,7 +312,7 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
     // --- Estimated daily usage (Claude Code stdin, no cache data) ---
     const stats = renderModelStats(modelStats, activeModel, cacheRatio);
     if (stats) {
-      out.push(`${fmt.C.dim}今日${fmt.C.reset} ${stats}`);
+      out.push(`${fmt.C.dim}${fmt.t('todayLabel')}${fmt.C.reset} ${stats}`);
     }
 
     // Daily total from model stats
@@ -323,7 +323,7 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
         totalOut += v.output || 0;
       }
       if (totalIn > 0 || totalOut > 0) {
-        out.push(`${fmt.C.dim}总↑${fmt.formatTokens(totalIn)}↓${fmt.formatTokens(totalOut)}${fmt.C.reset}`);
+        out.push(`${fmt.C.dim}${fmt.t('totalLabel')}↑${fmt.formatTokens(totalIn)}↓${fmt.formatTokens(totalOut)}${fmt.C.reset}`);
       }
     }
   }
@@ -338,7 +338,7 @@ function renderLine3(balance, stale, modelStats, activeModel, cacheRatio, realUs
 
   let line = out.join(' | ');
 
-  if (stale) line += ` ${fmt.C.dim}(缓存)${fmt.C.reset}`;
+  if (stale) line += ` ${fmt.C.dim}${fmt.t('staleCacheLabel')}${fmt.C.reset}`;
 
   return line;
 }

@@ -187,6 +187,32 @@ powershell -File ~/.claude/deepseek-hud/setup-token.ps1 -Manual
 
 > ⚠️ 平台 Token 有效期**几天到几周**。过期时 Line 3 会显示 `⚠️ 登录过期 运行 setup-token 刷新`，重新运行 setup 脚本即可。
 
+### 语言设置
+
+HUD 默认显示**中文**。如需切换为英文，设置环境变量：
+
+```bash
+export DEEPSEEK_HUD_LANG=en
+```
+
+Windows PowerShell：
+
+```powershell
+$env:DEEPSEEK_HUD_LANG = "en"
+```
+
+中文（默认） | 英文
+---|---
+`本会话` | `sess`
+`估` / `缓存估` | `~` / `cache~`
+`今日` | `today`
+`命中` | `hit`
+`(充)` / `(赠)` | `+topup` / `+grant`
+`总` | `total`
+`暂无数据` | `no data`
+`(缓存)` | `(stale)`
+`⚠️ 登录过期` / `运行 setup-token 刷新` | `⚠️ token expired` / `run setup-token`
+
 ## 安装配置
 
 ### 一键安装

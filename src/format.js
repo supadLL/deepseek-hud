@@ -157,6 +157,51 @@ function effortIcon(level) {
 }
 
 // ---------------------------------------------------------------------------
+// i18n — switch language via DEEPSEEK_HUD_LANG env var
+//   DEEPSEEK_HUD_LANG=en  → English
+//   DEEPSEEK_HUD_LANG=zh  → Chinese (default)
+//   unset / empty         → Chinese (default)
+// ---------------------------------------------------------------------------
+
+const LOCALE = (process.env.DEEPSEEK_HUD_LANG || 'zh').toLowerCase();
+
+/**
+ * Translation table.  Key names describe where the string appears.
+ */
+const MSGS = {
+  // --- Line 2 ---
+  sessionLabel:   { zh: '本会话',       en: 'sess' },
+  estimatedLabel: { zh: '估',           en: '~'    },
+
+  // --- Line 3 ---
+  todayLabel:     { zh: '今日',         en: 'today' },
+  topUpLabel:     { zh: '(充)',         en: '+topup' },
+  grantLabel:     { zh: '(赠)',         en: '+grant' },
+  cacheHitLabel:  { zh: '命中',         en: 'hit'  },
+  cacheEstLabel:  { zh: '缓存估',       en: 'cache~' },
+  totalLabel:     { zh: '总',           en: 'total' },
+  staleCacheLabel:{ zh: '(缓存)',       en: '(stale)' },
+  noDataLabel:    { zh: '暂无数据',     en: 'no data' },
+
+  // --- Token expired ---
+  tokenExpired:   { zh: '⚠️ 登录过期',  en: '⚠️ token expired' },
+  tokenHint:      { zh: '运行 setup-token 刷新', en: 'run setup-token' },
+};
+
+/**
+ * Translate a message key to the current locale.
+ * Falls back to Chinese if the key or locale is missing.
+ *
+ * @param {string} key
+ * @returns {string}
+ */
+function t(key) {
+  const entry = MSGS[key];
+  if (!entry) return key;            // unknown key — return as-is
+  return entry[LOCALE] || entry.zh;  // fallback to zh
+}
+
+// ---------------------------------------------------------------------------
 
 module.exports = {
   C,
@@ -166,4 +211,5 @@ module.exports = {
   currencySymbol,
   estimateCost,
   effortIcon,
+  t,
 };

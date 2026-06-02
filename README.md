@@ -188,6 +188,32 @@ The token is read from (in priority order):
 
 > ⚠️ The platform token expires after **days to weeks**. When it does, Line 3 shows a warning — just re-run the setup script.
 
+### Language
+
+The HUD displays in **Chinese by default**. To switch to English, set the environment variable:
+
+```bash
+export DEEPSEEK_HUD_LANG=en
+```
+
+Or on Windows PowerShell:
+
+```powershell
+$env:DEEPSEEK_HUD_LANG = "en"
+```
+
+Chinese (default) | English
+---|---
+`本会话` | `sess`
+`估` / `缓存估` | `~` / `cache~`
+`今日` | `today`
+`命中` | `hit`
+`(充)` / `(赠)` | `+topup` / `+grant`
+`总` | `total`
+`暂无数据` | `no data`
+`(缓存)` | `(stale)`
+`⚠️ 登录过期` / `运行 setup-token 刷新` | `⚠️ token expired` / `run setup-token`
+
 ## Setup
 
 ### One-Command Install
