@@ -22,20 +22,22 @@
 终端底部 3 行 HUD：
 
 ```
-[deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 5m 30s
-████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K | 💰 本次¥0.30 $0.0123 200K
-💎 ¥110.00(充) | v4-pro↑150K↓25K v4-flash↑5K | ✅
+[deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 10m 0s
+███████░░░ 65% ctx | ↑22.5K ↓4.0K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.039) $0.025 200K
+💎 ¥110.00(充) | 今日 v4-pro↑150K↓25K v4-flash↑5K | 总↑180K↓30K | ✅
 ```
 
 | 行 | 内容 | 说明 |
 |---|---|---|
 | 1 | **会话标识** | 模型名、项目目录、Git 分支、effort 等级、会话时长 |
-| 2 | **资源用量** | 上下文窗口进度条（绿/黄/红）、token 明细（↑输入 ↓输出 ⟳缓存）、余额差值人民币成本 + USD 参考 |
-| 3 | **余额与模型** | DeepSeek 余额、各模型 token 用量（活跃高亮、未使用暗灰）、可用状态 |
+| 2 | **会话资源** | 上下文窗口进度条（绿/黄/红）、**本次对话** token 明细（↑输入 ↓输出）、缓存命中率（⟳X(X%)）、余额差值成本 + token 估算 + USD 参考 |
+| 3 | **余额与今日** | DeepSeek 余额、**今日累计** 各模型 token（`今日` 标签）、今日总消耗（`总`）、可用状态 |
 
 ## 功能特性
 
-- **真实人民币成本** — 通过 DeepSeek 余额差值（`初始余额 − 当前余额`）追踪实际消费，而非 Claude Code 的 Anthropic 定价估算
+- **真实人民币成本** — 通过 DeepSeek 余额差值（`初始余额 − 当前余额`）追踪实际消费，辅以基于 session token 量的费用估算（`估¥X.XXXX`）
+- **缓存命中率** — 展示 `⟳4.5K(24%)`，直观反映 prompt cache 的命中效率
+- **会话 / 今日分离** — Line 2 展示**本次对话** token 消耗，Line 3 展示**今日累计**（`今日` 标签）和今日总消耗（`总`）
 - **多模型追踪** — 分别显示 `deepseek-v4-pro` 和 `deepseek-v4-flash` 的累计 token 用量，活跃模型高亮
 - **双币种展示** — 同时显示 Claude Code 的 USD 估算值和余额差值计算的真实 CNY 消费
 - **30 秒余额缓存** — 避免频繁请求 DeepSeek API
@@ -71,6 +73,16 @@ deepseek-statusline/
 2. 后续每次调用计算 `sessionCost = initialBalance − currentBalance`（消费金额）
 3. 消费金额单调递增，避免 API 缓存波动导致数字回退
 4. 余额上升（充值）时自动重置基线
+5. 同时基于 session token 量 × DeepSeek 官价计算估算值（`估¥X.XXXX`），作为即时参考
+
+### 会话 vs 今日 — Token 追踪
+
+Claude Code 传入的 `total_input_tokens` / `total_output_tokens` 是 **今日 API Key 级别累计值**，不是会话级别的：
+
+- **会话开始**时快照当日累计为 `dailyBaseline`
+- **Line 2 会话 token** = 当日累计 − 会话起始基线（本次对话消耗）
+- **Line 3 今日 token** = 当日累计值 + `今日` 标签（所有会话总和）
+- **缓存命中率** = `cache_read_input_tokens / (input_tokens + cache_read_input_tokens)`（当前上下文快照）
 
 ### 多模型 Token 追踪
 
@@ -78,7 +90,7 @@ deepseek-statusline/
 
 - 比较当前上下文 token 数与上次基线，差值计入对应模型
 - `/compact` 后 token 数下降时，保留累计值不变，仅重置增量基线
-- 当前活跃模型 → **白色加粗**；非活跃模型 → 暗色；未使用模型 → 不显示
+- 当前活跃模型 → **白色**；非活跃模型 → 暗色
 
 ### 数据来源
 
@@ -87,6 +99,7 @@ deepseek-statusline/
 | 会话 token、成本、时长 | Claude Code 通过 stdin 传入的 JSON |
 | DeepSeek 账户余额 | `GET https://api.deepseek.com/user/balance`（每 30 秒刷新） |
 | 各模型 token 累计 | 会话状态文件（存储于系统临时目录 `os.tmpdir()`） |
+| 缓存命中率 | `current_usage.cache_read_input_tokens` / `current_usage.input_tokens` |
 
 ## 安装配置
 
@@ -159,11 +172,11 @@ echo '{"model":{"id":"deepseek-v4-pro"},"workspace":{"current_dir":"/path/to/pro
 | 🟢 绿色 | 上下文使用 < 70% |
 | 🟡 黄色 | 上下文使用 70%–89% |
 | 🔴 红色 | 上下文使用 ≥ 90% |
-| 🟢 绿色（`⟳`） | 缓存命中 token（费用极低） |
-| 🟡 黄色（`💰`） | 会话消费 |
+| 🟢 绿色（`⟳`） | 缓存命中 token + 命中率 (24%) |
+| 🟡 黄色（`💰`） | 会话消费 / 余额差值 RMB |
 | 🔵 青色 | 模型名称 |
-| ⚪ 白色 | 当前活跃模型统计 |
-| 🌫️ 暗色 | 非活跃模型统计 / 零值 |
+| ⚪ 白色 | 会话输入 token / 活跃模型统计 |
+| 🌫️ 暗色 | 输出 / 非活跃 / 零值 / 标签（`今日`,`总`,`估`）
 
 ### 图标
 

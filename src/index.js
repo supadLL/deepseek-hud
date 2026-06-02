@@ -13,7 +13,7 @@
 const { renderLine1, renderLine2, renderLine3 } = require('./render');
 const { fetchBalance, readStaleCache } = require('./balance');
 const { loadState, saveState, updateBalance, updateTokens } = require('./session');
-const { C } = require('./format');
+const { C, estimateCost } = require('./format');
 
 // ---------------------------------------------------------------------------
 // stdin reader
@@ -91,8 +91,21 @@ async function main() {
 
   // 4. Track per-model token usage -----------------------------------------
   const modelId = data.model?.id || data.model?.display_name || '';
+  let sessionTokens = { input: 0, output: 0, cache: 0 };
+  let estimatedCost = 0;
+
   if (modelId && data.context_window) {
-    updateTokens(state, modelId, data.context_window);
+    const result = updateTokens(state, modelId, data.context_window);
+    if (result) {
+      sessionTokens = result.sessionTokens;
+      // Token-based session cost estimate (complement to balance-delta)
+      estimatedCost = estimateCost(
+        modelId,
+        sessionTokens.input,
+        sessionTokens.output,
+        sessionTokens.cache,
+      );
+    }
   }
 
   // 5. Persist state -------------------------------------------------------
@@ -102,7 +115,7 @@ async function main() {
   const modelStats = state.models || {};
 
   console.log(renderLine1(data));
-  console.log(renderLine2(data, sessionCost, data.cost?.total_cost_usd || 0));
+  console.log(renderLine2(data, sessionCost, data.cost?.total_cost_usd || 0, estimatedCost, sessionTokens));
   console.log(renderLine3(balance, stale, modelStats, modelId));
 }
 

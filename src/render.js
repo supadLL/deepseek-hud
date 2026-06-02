@@ -82,54 +82,78 @@ function renderLine1(data) {
 }
 
 // ---------------------------------------------------------------------------
-// Line 2 — Resources (with RMB cost)
+// Line 2 — Resources (session-scoped, with RMB cost)
 // ---------------------------------------------------------------------------
 
 /**
  * Render the resources line.
  *
- * Format: `████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K | 💰 本次¥0.12 200K`
+ * Format: `████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K(12%) | 💰 ¥0.30(估¥0.28) $0.01 200K`
  *
- * The cost is computed from the balance delta (initial - current), which
- * reflects DeepSeek's real billing in CNY — far more accurate than the
- * Anthropic-pricing-based USD estimate from Claude Code.
+ * Token breakdown shows SESSION-LEVEL cumulative tokens (daily delta from
+ * session start), NOT the current context window state.  Cache-hit rate
+ * tells you how effective prompt caching is for this session.
  *
- * @param {object} data        - Claude Code session JSON
- * @param {number} sessionCost - actual RMB cost from balance delta
+ * Cost shows three numbers:
+ *   - Balance-delta RMB (real account spending since session start)
+ *   - Token-based estimate in parens (session-specific, computed from tokens × pricing)
+ *   - USD estimate from Claude Code (Anthropic pricing, reference only)
+ *
+ * @param {object} data          - Claude Code session JSON
+ * @param {number} sessionCost   - actual RMB cost from balance delta (account-wide)
+ * @param {number} usdCost       - USD estimate from Claude Code
+ * @param {number} estimatedCost - RMB estimate from session tokens × DeepSeek pricing
+ * @param {object} sessionTokens - {input, output, cache} session-level cumulative tokens
  * @returns {string}
  */
-function renderLine2(data, sessionCost, usdCost) {
+function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   const ctx   = data.context_window || {};
   const pct   = Math.round(ctx.used_percentage || 0);
-  const usage = ctx.current_usage || {};
 
   // Bar + percentage
   let line = `${fmt.progressBar(pct)} ${pct}% ctx`;
 
-  // Token breakdown
-  const input  = ctx.total_input_tokens || 0;
-  const output = ctx.total_output_tokens || 0;
-  const cache  = usage.cache_read_input_tokens || 0;
+  // Token breakdown — session-level cumulative (daily delta from session start)
+  const input  = (sessionTokens && sessionTokens.input)  || 0;
+  const output = (sessionTokens && sessionTokens.output) || 0;
 
-  if (input > 0 || output > 0) {
+  // Cache value comes from current_usage (point-in-time context snapshot),
+  // NOT from sessionTokens, because cache_read_input_tokens is not a daily
+  // cumulative field — it only reflects the current context window.
+  const usage = ctx.current_usage || {};
+  const cache = usage.cache_read_input_tokens || 0;
+  const ctxInput = usage.input_tokens || 0;
+
+  if (input > 0 || output > 0 || cache > 0) {
     line += ` | ${fmt.C.white}↑${fmt.formatTokens(input)}${fmt.C.reset}`;
     line += ` ${fmt.C.dim}↓${fmt.formatTokens(output)}${fmt.C.reset}`;
+    // Cache-hit rate: what share of current-context input came from cache?
+    const denom = ctxInput + cache;
+    const rate  = denom > 0 ? Math.round(cache / denom * 100) : 0;
     if (cache > 0) {
-      line += ` ${fmt.C.green}⟳${fmt.formatTokens(cache)}${fmt.C.reset}`;
+      line += ` ${fmt.C.green}⟳${fmt.formatTokens(cache)}${fmt.C.dim}(${rate}%)${fmt.C.reset}`;
+    } else if (ctxInput > 0) {
+      line += ` ${fmt.C.dim}⟳0(0%)${fmt.C.reset}`;
     }
+  } else {
+    line += ` | ${fmt.C.dim}—${fmt.C.reset}`;
   }
 
-  // Cost: real RMB (balance delta) + USD estimate (Claude Code)
+  // Cost: balance-delta RMB (real) + token estimate + USD reference
   const usd = usdCost || 0;
   const cny = sessionCost || 0;
-  // RMB first — the real cost from DeepSeek billing
-  if (cny > 0) {
-    line += ` | ${fmt.C.yellow}💰 本次¥${cny.toFixed(4)}${fmt.C.reset}`;
+  const est = estimatedCost || 0;
+
+  if (cny > 0 || est > 0) {
+    line += ` | ${fmt.C.yellow}💰`;
+    line += ` ¥${cny.toFixed(4)}`;
+    if (est > 0) {
+      line += `${fmt.C.dim}(估¥${est.toFixed(4)})${fmt.C.reset}`;
+    }
+    line += ` ${fmt.C.dim}$${usd.toFixed(4)}${fmt.C.reset}`;
   } else {
-    line += ` | ${fmt.C.dim}💰 本次¥0.0000${fmt.C.reset}`;
+    line += ` | ${fmt.C.dim}💰 ¥0.0000 $0.0000${fmt.C.reset}`;
   }
-  // USD second — Claude Code's Anthropic-pricing estimate (reference only)
-  line += ` ${fmt.C.dim}$${usd.toFixed(4)}${fmt.C.reset}`;
 
   // Context window max size
   const maxK = Math.round((ctx.context_window_size || 200000) / 1000);
@@ -155,19 +179,22 @@ function shortModelName(full) {
  *
  * Format: `v4-pro↑150K↓25K v4-flash↑5K`
  *
- * Active model is highlighted.  Models with 0 tokens show just the name.
- * Note: Claude Code only reports the primary model ID, so flash counts
- * are typically 0 even when flash is used internally (subagents etc.).
- * The real total cost across all models is on Line 2 (balance delta).
+ * Active model is highlighted.  Models with 0 tokens show just the name
+ * in dim grey.
+ *
+ * These are DAILY-CUMULATIVE totals (per the session state), not
+ * session-level numbers.  The caller should prefix with "今日" for clarity.
  *
  * @param {object} modelStats   - per-model token counters from session state
  * @param {string} activeModel  - currently-active model ID
  * @returns {string}
  */
 function renderModelStats(modelStats, activeModel) {
-  const models = ['deepseek-v4-pro', 'deepseek-v4-flash'];
+  const modelIds = Object.keys(modelStats).length > 0
+    ? Object.keys(modelStats).sort()
+    : ['deepseek-v4-pro', 'deepseek-v4-flash'];
 
-  const parts = models.map(id => {
+  const parts = modelIds.map(id => {
     const v = (modelStats && modelStats[id]) || { input: 0, output: 0, cache: 0 };
     const short    = shortModelName(id);
     const isActive = id === activeModel || shortModelName(activeModel) === short;
@@ -183,20 +210,23 @@ function renderModelStats(modelStats, activeModel) {
       return `${color}${short}${items.join('')}${fmt.C.reset}`;
     }
     // Zero tokens — show name only, very dim
-    return `\x1b[90m${short}\x1b[0m`;
+    return `${fmt.C.dim}${short}${fmt.C.reset}`;
   });
 
   return parts.join(' ');
 }
 
 /**
- * Render the DeepSeek balance + model usage line.
+ * Render the DeepSeek balance + daily model usage line.
  *
- * Format: `💎 ¥5.06(充) | v4-pro↑150K↓25K v4-flash | ✅`
+ * Format: `💎 ¥5.06(充) | 今日 v4-pro↑150K↓25K v4-flash↑5K | ✅`
+ *
+ * The model stats are DAILY-CUMULATIVE totals (accumulated across all
+ * sessions today).  Session-level cost is on Line 2.
  *
  * @param {object|null} balance     - balance API response, or null
  * @param {boolean}     [stale]     - whether the data came from stale cache
- * @param {object}      modelStats  - per-model token counters
+ * @param {object}      modelStats  - per-model token counters (daily cumulative)
  * @param {string}      activeModel - currently-active model ID
  * @returns {string}
  */
@@ -223,8 +253,25 @@ function renderLine3(balance, stale, modelStats, activeModel) {
     }
   }
 
-  // --- Model usage (session token counts) ---
-  out.push(renderModelStats(modelStats, activeModel));
+  // --- Model usage (daily cumulative token counts) ---
+  const stats = renderModelStats(modelStats, activeModel);
+  if (stats) {
+    out.push(`${fmt.C.dim}今日${fmt.C.reset} ${stats}`);
+  }
+
+  // --- Daily total across all models ---
+  if (modelStats && Object.keys(modelStats).length > 0) {
+    let totalIn = 0, totalOut = 0;
+    for (const v of Object.values(modelStats)) {
+      totalIn  += v.input  || 0;
+      totalOut += v.output || 0;
+      // cache is included in input (cache-hit means input was free), so we
+      // don't add it separately — total real cost = input + output
+    }
+    if (totalIn > 0 || totalOut > 0) {
+      out.push(`${fmt.C.dim}总↑${fmt.formatTokens(totalIn)}↓${fmt.formatTokens(totalOut)}${fmt.C.reset}`);
+    }
+  }
 
   // --- Availability badge ---
   if (balance && balance.balance_infos && balance.balance_infos.length > 0) {

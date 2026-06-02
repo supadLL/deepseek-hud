@@ -22,20 +22,22 @@ A beautiful real-time heads-up display (HUD) for Claude Code that puts your Deep
 Three lines rendered at the bottom of your terminal:
 
 ```
-[deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 5m 30s
-████░░░░░░ 42% ctx | ↑15.5K ↓1.2K ⟳2.0K | 💰 本次¥0.30 $0.0123 200K
-💎 ¥110.00(充) | v4-pro↑150K↓25K v4-flash↑5K | ✅
+[deepseek-v4-pro] 📁 my-project | 🌿 main | 🔥 high | ⏱️ 10m 0s
+███████░░░ 65% ctx | ↑22.5K ↓4.0K ⟳4.5K(24%) | 💰 ¥0.50(估¥0.039) $0.025 200K
+💎 ¥110.00(充) | 今日 v4-pro↑150K↓25K v4-flash↑5K | 总↑180K↓30K | ✅
 ```
 
 | Line | Content | Description |
 |---|---|---|
 | 1 | **Session Identity** | Model name, project directory, Git branch, effort level, duration |
-| 2 | **Resource Usage** | Context window bar (green/yellow/red), token breakdown (↑in ↓out ⟳cache), RMB cost from balance delta + USD estimate |
-| 3 | **Balance & Models** | DeepSeek balance, per-model token counts (active highlighted, unused dimmed), availability |
+| 2 | **Session Resources** | Context window bar (green/yellow/red), **session-level** tokens (↑in ↓out), cache hit rate (⟳X(X%)), cost (balance-delta RMB + token estimate + USD) |
+| 3 | **Balance & Daily Totals** | DeepSeek balance, **daily-cumulative** per-model token counts (今日 label), daily total across all models (总), availability |
 
 ## Features
 
-- **Real RMB Cost** — tracks actual spending via DeepSeek balance delta (`initial − current`), not Claude Code's Anthropic-pricing estimate
+- **Real RMB Cost** — tracks actual spending via DeepSeek balance delta (`initial − current`), plus session-level token-based cost estimate (`估¥X.XXXX`)
+- **Cache Hit Rate** — shows `⟳4.5K(24%)` — cache tokens and the percentage of context input served from cache
+- **Session vs Daily** — Line 2 shows **session-level** tokens (this conversation), Line 3 shows **daily-cumulative** totals with `今日` label and `总` sum
 - **Multi-Model Tracking** — displays cumulative token counts for each model (`deepseek-v4-pro` / `deepseek-v4-flash`), highlighting the active one
 - **Dual Currency** — shows both Claude Code's USD estimate and the real CNY balance-delta cost
 - **30s Balance Cache** — avoids rate-limiting the DeepSeek API
@@ -80,6 +82,15 @@ Tokens are attributed to the model that was active when they appeared:
 - After `/compact`, accumulated totals are preserved — only the delta baseline resets
 - The currently-active model is highlighted in **white**; inactive models appear dimmed
 
+### Session vs Daily — Token Tracking
+
+Claude Code sends **daily-cumulative** `total_input_tokens` / `total_output_tokens` (API-key-wide, not per-session):
+
+- **Session start** snapshots the daily totals as `dailyBaseline`
+- **Line 2 session tokens** = daily cumulative − session baseline (this conversation)
+- **Line 3 daily totals** = daily cumulative with `今日` label + `总` sum (all sessions today)
+- **Cache hit rate** = `cache_read_input_tokens / (input_tokens + cache_read_input_tokens)` (current context snapshot)
+
 ### Data Sources
 
 | Data | Source |
@@ -87,6 +98,7 @@ Tokens are attributed to the model that was active when they appeared:
 | Session tokens, cost, duration | Claude Code session JSON via stdin |
 | DeepSeek account balance | `GET https://api.deepseek.com/user/balance` (cached 30s) |
 | Per-model token counters | Session state file in `os.tmpdir()` |
+| Cache hit rate | `current_usage.cache_read_input_tokens` / `current_usage.input_tokens` |
 
 ## Setup
 
@@ -157,11 +169,11 @@ Three lines of output = success.
 | 🟢 Green | Context usage < 70% |
 | 🟡 Yellow | Context usage 70%–89% |
 | 🔴 Red | Context usage ≥ 90% |
-| 🟢 Green (`⟳`) | Cache-hit tokens (cheap!) |
-| 🟡 Yellow (`💰`) | Session cost |
+| 🟢 Green (`⟳`) | Cache-hit tokens + hit rate (24%) |
+| 🟡 Yellow (`💰`) | Session cost / balance-delta RMB |
 | 🔵 Cyan | Model name |
-| ⚪ White | Active model stats |
-| 🌫️ Dim | Inactive model stats / zero values |
+| ⚪ White | Session input tokens / active model stats |
+| 🌫️ Dim | Output / inactive / zero / labels (`今日`,`总`,`估`)
 
 ## Icons
 

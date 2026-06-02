@@ -32,6 +32,7 @@ function freshState() {
     initialBalance: null,       // balance at session start (number)
     maxSessionCost: 0,          // monotonic max cost observed (handles API jitter)
     models: {},                 // { "model-id": { input, output, cache } }
+    dailyBaseline: null,        // { input, output, cache } — daily totals at session start
     lastInputTokens: 0,         // previous context input tokens (for delta calc)
     lastOutputTokens: 0,        // previous context output tokens
     lastCacheTokens: 0,         // previous context cache tokens
@@ -112,24 +113,48 @@ function updateBalance(state, currentBalance) {
 /**
  * Accumulate token deltas for the current model.
  *
- * Strategy: compare the current context tokens against the last-seen
- * baseline.  A positive delta is attributed to `modelId`.  If tokens
- * dropped (e.g. after /compact) the baseline simply resets — previously
- * accumulated counts are preserved.
+ * Claude Code sends DAILY-CUMULATIVE token counts (total_input_tokens /
+ * total_output_tokens are today's API-key-wide totals, not per-session).
+ * To get session-level numbers we snapshot the daily total at session start
+ * ("dailyBaseline") and compute session tokens = current daily − baseline.
+ *
+ * Per-model breakdown is approximate: deltas from the last invocation are
+ * attributed to `modelId`.  After /compact the baseline resets but
+ * previously-accumulated counts are preserved.
  *
  * @param {object} state            - session state (mutated in place)
  * @param {string} modelId          - e.g. "deepseek-v4-pro"
  * @param {object} context          - data.context_window from Claude Code
+ * @returns {{ sessionTokens: {input,output,cache}, dailyTotals: {input,output,cache} }}
  */
 function updateTokens(state, modelId, context) {
-  if (!modelId || !context) return;
+  if (!modelId || !context) {
+    return { sessionTokens: { input: 0, output: 0, cache: 0 },
+             dailyTotals:   { input: 0, output: 0, cache: 0 } };
+  }
 
   const currInput  = context.total_input_tokens || 0;
   const currOutput = context.total_output_tokens || 0;
   const usage      = context.current_usage || {};
   const currCache  = usage.cache_read_input_tokens || 0;
 
-  // Compute deltas
+  // --- First call of this session: snapshot daily baseline ------------
+  if (!state.dailyBaseline) {
+    state.dailyBaseline = { input: currInput, output: currOutput, cache: currCache };
+    state.lastInputTokens  = currInput;
+    state.lastOutputTokens = currOutput;
+    state.lastCacheTokens  = currCache;
+    // Ensure model entry exists (increment by zero)
+    if (!state.models[modelId]) {
+      state.models[modelId] = { input: 0, output: 0, cache: 0 };
+    }
+    return {
+      sessionTokens: { input: 0, output: 0, cache: 0 },
+      dailyTotals:   { input: currInput, output: currOutput, cache: currCache },
+    };
+  }
+
+  // --- Incremental deltas since last invocation -----------------------
   const dInput  = Math.max(0, currInput  - state.lastInputTokens);
   const dOutput = Math.max(0, currOutput - state.lastOutputTokens);
   const dCache  = Math.max(0, currCache  - state.lastCacheTokens);
@@ -144,10 +169,23 @@ function updateTokens(state, modelId, context) {
   m.output += dOutput;
   m.cache  += dCache;
 
-  // Update baselines
+  // Update incremental baselines
   state.lastInputTokens  = currInput;
   state.lastOutputTokens = currOutput;
   state.lastCacheTokens  = currCache;
+
+  // --- Session-level tokens (delta from session start) ----------------
+  const b = state.dailyBaseline;
+  const sessionTokens = {
+    input:  Math.max(0, currInput  - b.input),
+    output: Math.max(0, currOutput - b.output),
+    cache:  Math.max(0, currCache  - b.cache),
+  };
+
+  return {
+    sessionTokens,
+    dailyTotals: { input: currInput, output: currOutput, cache: currCache },
+  };
 }
 
 // ---------------------------------------------------------------------------

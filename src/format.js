@@ -103,6 +103,38 @@ function currencySymbol(code) {
 }
 
 // ---------------------------------------------------------------------------
+// Token cost estimation (DeepSeek v4 pricing, approximate RMB)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pricing table (CNY per 1M tokens).  Approximate — not official.
+ * Source: https://api-docs.deepseek.com/quick_start/pricing
+ */
+const PRICING = {
+  'deepseek-v4-pro':   { input: 1.0, output: 4.0, cache: 0.1  },
+  'deepseek-v4-flash': { input: 0.5, output: 2.0, cache: 0.05 },
+  // fallback for unknown / future models
+  '_default':          { input: 1.0, output: 4.0, cache: 0.1  },
+};
+
+/**
+ * Estimate session cost in CNY from token counts and model pricing.
+ *
+ * @param {string} modelId     - e.g. "deepseek-v4-pro"
+ * @param {number} inputTokens
+ * @param {number} outputTokens
+ * @param {number} cacheTokens
+ * @returns {number} estimated RMB
+ */
+function estimateCost(modelId, inputTokens, outputTokens, cacheTokens) {
+  const price = PRICING[modelId] || PRICING._default;
+  const inputCost  = (inputTokens  / 1_000_000) * price.input;
+  const outputCost = (outputTokens / 1_000_000) * price.output;
+  const cacheCost  = (cacheTokens  / 1_000_000) * price.cache;
+  return inputCost + outputCost + cacheCost;
+}
+
+// ---------------------------------------------------------------------------
 // Effort level
 // ---------------------------------------------------------------------------
 
@@ -124,5 +156,6 @@ module.exports = {
   formatTokens,
   progressBar,
   currencySymbol,
+  estimateCost,
   effortIcon,
 };
