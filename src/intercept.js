@@ -106,17 +106,21 @@ function scheduleWrite(usage) {
 // Accumulate usage from a response body
 // ---------------------------------------------------------------------------
 
-function accumulate(date, body) {
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch (_) {
-    return;  // not JSON — ignore
-  }
+/**
+ * Try to extract a `usage` object from a parsed JSON chunk.
+ * Returns the usage object, or null if this chunk doesn't contain one.
+ */
+function extractUsage(chunk) {
+  if (!chunk || typeof chunk !== 'object') return null;
+  const u = chunk.usage;
+  if (!u || typeof u.total_tokens !== 'number') return null;
+  return u;
+}
 
-  const u = data && data.usage;
-  if (!u || typeof u.total_tokens !== 'number') return;
-
+/**
+ * Accumulate a single usage object into the daily totals.
+ */
+function addUsage(date, u) {
   // Resolve cache-hit tokens from whichever field the API uses.
   // DeepSeek may use prompt_cache_hit_tokens, or cached_tokens inside
   // prompt_tokens_details, or may not report cache hits at all.
@@ -146,6 +150,60 @@ function accumulate(date, body) {
   usage.request_count            += 1;
 
   scheduleWrite(usage);
+}
+
+/**
+ * Accumulate usage from a response body.
+ *
+ * Handles two formats:
+ *   1. Plain JSON (non-streaming) — parse the whole body as one JSON object.
+ *   2. SSE stream (streaming)      — body contains `data: {...}` lines;
+ *      `usage` is only present on the LAST chunk before `[DONE]`.
+ *      We parse each SSE data line and use the last one that carries usage.
+ */
+function accumulate(date, body) {
+  // --- Try plain JSON first (non-streaming responses) ---
+  try {
+    const data = JSON.parse(body);
+    const u = extractUsage(data);
+    if (u) {
+      addUsage(date, u);
+      return;
+    }
+    // Valid JSON but no usage — might still have SSE-style data embedded;
+    // fall through to SSE parser below.
+  } catch (_) {
+    // Not valid JSON — probably an SSE stream; parse it as SSE below.
+  }
+
+  // --- SSE stream parser ---
+  // SSE format:
+  //   data: {"id":"...","usage":{...}}\n\n
+  //   data: [DONE]\n\n
+  //
+  // `usage` only appears on the last content chunk (before [DONE]).
+  // We scan ALL data lines and accumulate the LAST usage-bearing chunk.
+  // (There should only be one per stream, but we're defensive.)
+  const lines = body.split(/\r?\n/);
+  let lastUsage = null;
+
+  for (const line of lines) {
+    if (!line.startsWith('data:')) continue;
+    const payload = line.slice(5).trim();  // strip 'data:' prefix
+    if (!payload || payload === '[DONE]') continue;
+
+    try {
+      const chunk = JSON.parse(payload);
+      const u = extractUsage(chunk);
+      if (u) lastUsage = u;
+    } catch (_) {
+      // Malformed SSE line — skip
+    }
+  }
+
+  if (lastUsage) {
+    addUsage(date, lastUsage);
+  }
 }
 
 // ---------------------------------------------------------------------------
