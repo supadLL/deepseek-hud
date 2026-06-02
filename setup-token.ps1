@@ -11,7 +11,8 @@
 # =============================================================================
 
 param(
-  [switch]$Manual
+  [switch]$Manual,
+  [switch]$Force   # Skip confirmation prompt
 )
 
 $TokenFile = "$env:USERPROFILE\.claude\deepseek-hud\.platform_token"
@@ -47,10 +48,15 @@ if (-not $Manual) {
   if ($hasPlaywright) {
     Write-Host "Playwright detected -- trying automatic extraction..." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "NOTE: This will close all browser windows to access your login profile." -ForegroundColor Yellow
-    Write-Host "Please save any important browser work first." -ForegroundColor Yellow
-    Write-Host ""
-    $confirm = Read-Host -Prompt "Continue? (Y/n)"
+    if (-not $Force) {
+      Write-Host "NOTE: This will close all browser windows to access your login profile." -ForegroundColor Yellow
+      Write-Host "Please save any important browser work first." -ForegroundColor Yellow
+      Write-Host ""
+    }
+    $confirm = 'Y'
+    if (-not $Force) {
+      $confirm = Read-Host -Prompt "Continue? (Y/n)"
+    }
 
     if ($confirm -eq 'n' -or $confirm -eq 'N') {
       Write-Host "Skipping auto mode. Switching to manual..." -ForegroundColor Yellow
