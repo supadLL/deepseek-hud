@@ -132,9 +132,12 @@ function renderLine2(data, sessionCost, usdCost, estimatedCost, sessionTokens) {
   // token counting (system prompt, tools, cache, etc.).
   const claudePct    = ctx.used_percentage || 0;
   const claudeCtxSize = ctx.context_window_size || 200000;
-  const pct = claudeCtxSize > 0
+  let pct = claudeCtxSize > 0
     ? Math.round(claudePct * claudeCtxSize / ctxSize)
     : claudePct;
+  // Floor at 1% when there IS context usage so we never show 0%
+  // after /compact (small summary < 5K tokens = sub-1% on 1M).
+  if (pct === 0 && claudePct > 0) pct = 1;
   const usage   = ctx.current_usage || {};
   const ctxInput = usage.input_tokens || 0;
 
